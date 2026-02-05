@@ -20,11 +20,16 @@ import apiLoggerMiddleware from './middleware/apiLogger';
 
 const app = new OpenAPIHono();
 
+// Get frontend URL from env or use defaults
+const frontendUrls = process.env.FRONTEND_URL 
+  ? [process.env.FRONTEND_URL, 'http://localhost:3001', 'http://localhost:5173']
+  : ['http://localhost:3001', 'http://localhost:5173'];
+
 // Middleware
 app.use('*', logger()); // Console logger (built-in Hono)
 app.use('*', prettyJSON());
 app.use('*', cors({
-  origin: ['http://localhost:3001', 'http://localhost:5173'],
+  origin: frontendUrls,
   credentials: true,
   allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization'],
@@ -57,6 +62,10 @@ app.get('/swagger', swaggerUI({
 }));
 
 // OpenAPI JSON
+const apiBaseUrl = process.env.RAILWAY_PUBLIC_DOMAIN 
+  ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
+  : `http://localhost:${process.env.PORT || '3000'}`;
+
 app.doc('/api/openapi.json', {
   openapi: '3.0.0',
   info: {
@@ -66,19 +75,21 @@ app.doc('/api/openapi.json', {
   },
   servers: [
     {
-      url: 'http://localhost:3000',
-      description: 'Development server',
+      url: apiBaseUrl,
+      description: process.env.NODE_ENV === 'production' ? 'Production server' : 'Development server',
     },
   ],
 });
 
 const port = parseInt(process.env.PORT || '3000');
+const host = process.env.NODE_ENV === 'production' ? '0.0.0.0' : 'localhost';
 
-console.log(`🚀 Server is running on port ${port}`);
-console.log(`📚 Swagger UI: http://localhost:${port}/swagger`);
-console.log(`📖 OpenAPI Spec: http://localhost:${port}/api/openapi.json`);
+console.log(`🚀 Server is running on ${host}:${port}`);
+console.log(`📚 Swagger UI: ${apiBaseUrl}/swagger`);
+console.log(`📖 OpenAPI Spec: ${apiBaseUrl}/api/openapi.json`);
 
 serve({
   fetch: app.fetch,
   port,
+  hostname: host,
 });
