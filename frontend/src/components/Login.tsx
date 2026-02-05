@@ -54,7 +54,7 @@ const Login = () => {
         {/* Header with Logo */}
         <div className="text-center">
           <img 
-            src="/assets/2_Ptimm.png" 
+            src="/2_Ptimm.png" 
             alt="PT IMM Logo" 
             className="mx-auto h-24 w-auto mb-4"
           />
