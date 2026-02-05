@@ -1,0 +1,37 @@
+{
+  "name": "prm-imm-backend",
+  "version": "1.0.0",
+  "description": "Backend API for PRM-IMM Meeting Room Management System",
+  "main": "src/index.ts",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "db:push": "tsx src/db/push.ts",
+    "db:studio": "drizzle-kit studio"
+  },
+  "keywords": ["hono", "api", "postgresql", "drizzle"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@hono/node-server": "^1.13.0",
+    "@hono/swagger-ui": "^0.4.0",
+    "@hono/zod-openapi": "^0.16.0",
+    "hono": "^4.6.0",
+    "drizzle-orm": "^0.33.0",
+    "postgres": "^3.4.0",
+    "dotenv": "^16.4.0",
+    "zod": "^3.23.0",
+    "bcryptjs": "^2.4.3",
+    "jsonwebtoken": "^9.0.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/jsonwebtoken": "^9.0.6",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0",
+    "drizzle-kit": "^0.24.0"
+  }
+}
