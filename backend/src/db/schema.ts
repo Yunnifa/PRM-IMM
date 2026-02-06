@@ -13,7 +13,8 @@ export const users = pgTable('users', {
   email: varchar('email', { length: 255 }).notNull().unique(),
   password: varchar('password', { length: 255 }).notNull(),
   fullName: varchar('full_name', { length: 255 }).notNull(),
-  whatsapp: varchar('whatsapp', { length: 20 }),
+  whatsapp: varchar('whatsapp', { length: 20 }).notNull().unique(), // Nomor telepon untuk login
+  birthDate: varchar('birth_date', { length: 10 }), // Format: YYYY-MM-DD (untuk generate password)
   department: varchar('department', { length: 100 }),
   role: roleEnum('role').notNull().default('user'),
   isActive: integer('is_active').notNull().default(1), // 1 = active, 0 = inactive (soft delete)

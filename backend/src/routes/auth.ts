@@ -9,16 +9,16 @@ const app = new OpenAPIHono();
 
 // Schema definitions
 const LoginSchema = z.object({
-  username: z.string().min(3),
+  whatsapp: z.string().min(10, 'Nomor telepon minimal 10 digit'),
   password: z.string().min(6),
 });
 
 const RegisterSchema = z.object({
   username: z.string().min(3),
   email: z.string().email(),
-  password: z.string().min(6),
   fullName: z.string().min(1),
-  whatsapp: z.string().optional(),
+  whatsapp: z.string().min(10, 'Nomor telepon minimal 10 digit'),
+  birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Format tanggal harus YYYY-MM-DD'),
   department: z.string().optional(),
   role: z.enum(['admin', 'head_ga', 'head_os', 'user']).optional(),
 });
@@ -28,7 +28,8 @@ const UserResponseSchema = z.object({
   username: z.string(),
   email: z.string(),
   fullName: z.string(),
-  whatsapp: z.string().nullable(),
+  whatsapp: z.string(),
+  birthDate: z.string().nullable(),
   department: z.string().nullable(),
   role: z.string(),
   createdAt: z.string(),
@@ -93,18 +94,18 @@ const loginRoute = createRoute({
 
 app.openapi(loginRoute, async (c) => {
   try {
-    const { username, password } = c.req.valid('json');
+    const { whatsapp, password } = c.req.valid('json');
 
-    const [user] = await db.select().from(users).where(eq(users.username, username));
+    const [user] = await db.select().from(users).where(eq(users.whatsapp, whatsapp));
 
     if (!user) {
-      return c.json({ success: false, message: 'Invalid credentials' }, 401);
+      return c.json({ success: false, message: 'Nomor telepon tidak terdaftar' }, 401);
     }
 
     const isValidPassword = await bcrypt.compare(password, user.password);
 
     if (!isValidPassword) {
-      return c.json({ success: false, message: 'Invalid credentials' }, 401);
+      return c.json({ success: false, message: 'Password salah' }, 401);
     }
 
     const token = jwt.sign(
@@ -119,6 +120,7 @@ app.openapi(loginRoute, async (c) => {
       email: user.email,
       fullName: user.fullName,
       whatsapp: user.whatsapp,
+      birthDate: user.birthDate,
       department: user.department,
       role: user.role,
       createdAt: user.createdAt?.toISOString() || '',
@@ -197,8 +199,19 @@ app.openapi(registerRoute, async (c) => {
       return c.json({ success: false, message: 'Email already exists' }, 400);
     }
 
+    const [existingWhatsapp] = await db.select().from(users).where(eq(users.whatsapp, data.whatsapp));
+    if (existingWhatsapp) {
+      return c.json({ success: false, message: 'Nomor telepon sudah terdaftar' }, 400);
+    }
+
+    // Generate password from first name + birth date (DDMMYYYY)
+    // Example: "John Doe" + "1990-05-15" = "john15051990"
+    const firstName = data.fullName.split(' ')[0].toLowerCase();
+    const [year, month, day] = data.birthDate.split('-');
+    const rawPassword = `${firstName}${day}${month}${year}`;
+    
     // Hash password
-    const hashedPassword = await bcrypt.hash(data.password, 10);
+    const hashedPassword = await bcrypt.hash(rawPassword, 10);
 
     // Create user
     const [newUser] = await db.insert(users).values({
@@ -206,7 +219,8 @@ app.openapi(registerRoute, async (c) => {
       email: data.email,
       password: hashedPassword,
       fullName: data.fullName,
-      whatsapp: data.whatsapp || null,
+      whatsapp: data.whatsapp,
+      birthDate: data.birthDate,
       department: data.department || null,
       role: data.role || 'user',
     }).returning();
@@ -223,6 +237,7 @@ app.openapi(registerRoute, async (c) => {
       email: newUser.email,
       fullName: newUser.fullName,
       whatsapp: newUser.whatsapp,
+      birthDate: newUser.birthDate,
       department: newUser.department,
       role: newUser.role,
       createdAt: newUser.createdAt?.toISOString() || '',
@@ -231,7 +246,7 @@ app.openapi(registerRoute, async (c) => {
     return c.json({
       success: true,
       message: 'Registration successful',
-      data: { token, user: userResponse },
+      data: { token, user: userResponse, generatedPassword: rawPassword },
     }, 201);
   } catch (error) {
     return c.json({ success: false, message: 'Internal server error' }, 500);
