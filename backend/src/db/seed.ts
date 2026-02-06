@@ -15,23 +15,27 @@ async function seed() {
     console.log('✅ Department created:', dept.name);
 
     // Create admin user
-    const hashedPassword = await bcrypt.hash('admin123', 10);
+    // Password = nama depan (lowercase) + tanggal lahir (DDMMYYYY)
+    // Contoh: yunnifa + 12062003 = yunnifa12062003
+    const hashedPassword = await bcrypt.hash('yunnifa12062003', 10);
     
     const [admin] = await db.insert(users).values({
-      username: 'admin',
+      username: 'yunnifa',
       password: hashedPassword,
-      fullName: 'Administrator',
-      email: 'admin@prm-imm.com',
+      fullName: 'Yunnifa Nur Lailli',
+      email: 'yunnifa@prm-imm.com',
+      whatsapp: '085754538366',
+      birthDate: '2003-06-12',
+      department: 'IT Department',
       role: 'admin',
-      departmentId: dept.id,
     }).returning();
 
     console.log('✅ Admin user created!');
     console.log('');
     console.log('========================================');
     console.log('🔐 LOGIN CREDENTIALS:');
-    console.log('   Username: admin');
-    console.log('   Password: admin123');
+    console.log('   Nomor Telepon: 085754538366');
+    console.log('   Password: yunnifa12062003');
     console.log('========================================');
     console.log('');
     console.log('🎉 Seeding completed successfully!');
