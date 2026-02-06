@@ -1,18 +1,36 @@
 import { db } from './index';
 import { users, departments } from './schema';
 import bcrypt from 'bcryptjs';
+import { eq } from 'drizzle-orm';
 
 async function seed() {
   console.log('🌱 Seeding database...');
 
   try {
-    // Create default department first
-    const [dept] = await db.insert(departments).values({
-      name: 'IT Department',
-      description: 'Information Technology Department',
-    }).returning();
+    // Check if admin user already exists
+    const [existingUser] = await db.select().from(users).where(eq(users.whatsapp, '085754538366'));
+    
+    if (existingUser) {
+      console.log('✅ Admin user already exists, skipping seed...');
+      console.log('');
+      console.log('========================================');
+      console.log('🔐 LOGIN CREDENTIALS:');
+      console.log('   Nomor Telepon: 085754538366');
+      console.log('   Password: yunnifa12062003');
+      console.log('========================================');
+      process.exit(0);
+    }
 
-    console.log('✅ Department created:', dept.name);
+    // Create default department first (ignore if exists)
+    try {
+      const [dept] = await db.insert(departments).values({
+        name: 'IT Department',
+        description: 'Information Technology Department',
+      }).returning();
+      console.log('✅ Department created:', dept.name);
+    } catch (e) {
+      console.log('ℹ️ Department already exists, skipping...');
+    }
 
     // Create admin user
     // Password = nama depan (lowercase) + tanggal lahir (DDMMYYYY)
