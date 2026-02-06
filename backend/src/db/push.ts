@@ -1,4 +1,4 @@
-import { db } from './index';
+import { db, closeConnection } from './index';
 import { sql } from 'drizzle-orm';
 import * as schema from './schema';
 
@@ -184,9 +184,11 @@ async function push() {
     `);
 
     console.log('✅ Database schema pushed successfully!');
+    await closeConnection();
     process.exit(0);
   } catch (error) {
     console.error('❌ Error pushing schema:', error);
+    await closeConnection();
     process.exit(1);
   }
 }

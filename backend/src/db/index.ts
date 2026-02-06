@@ -16,3 +16,9 @@ export const db = drizzle(queryClient, { schema });
 // For migrations
 const migrationClient = postgres(connectionString, { max: 1 });
 export const migrationDb = drizzle(migrationClient, { schema });
+
+// Export untuk close connection
+export const closeConnection = async () => {
+  await queryClient.end();
+  await migrationClient.end();
+};

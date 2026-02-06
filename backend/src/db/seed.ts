@@ -1,4 +1,4 @@
-import { db } from './index';
+import { db, closeConnection } from './index';
 import { users, departments } from './schema';
 import bcrypt from 'bcryptjs';
 import { eq } from 'drizzle-orm';
@@ -18,6 +18,7 @@ async function seed() {
       console.log('   Nomor Telepon: 085754538366');
       console.log('   Password: yunnifa12062003');
       console.log('========================================');
+      await closeConnection();
       process.exit(0);
     }
 
@@ -62,6 +63,7 @@ async function seed() {
     console.error('❌ Error seeding database:', error);
   }
 
+  await closeConnection();
   process.exit(0);
 }
 
