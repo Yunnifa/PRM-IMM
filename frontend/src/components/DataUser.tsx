@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { userService } from '../services/apiService';
+import { userService, authService } from '../services/apiService';
 
 interface User {
   id: number;
@@ -385,6 +385,7 @@ const DataUser = () => {
             email,
             fullName: nama,
             whatsapp: nomorTelepon,
+            birthDate: null,
             department,
             role,
             createdAt: new Date().toISOString()
