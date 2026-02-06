@@ -127,6 +127,62 @@ async function push() {
       );
     `);
 
+    // Add missing columns to existing tables
+    console.log('🔧 Adding missing columns...');
+    
+    // Add birth_date to users if not exists
+    await db.execute(sql`
+      DO $$ BEGIN
+        ALTER TABLE users ADD COLUMN birth_date VARCHAR(10);
+      EXCEPTION
+        WHEN duplicate_column THEN null;
+      END $$;
+    `);
+
+    // Add is_active to users if not exists
+    await db.execute(sql`
+      DO $$ BEGIN
+        ALTER TABLE users ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1;
+      EXCEPTION
+        WHEN duplicate_column THEN null;
+      END $$;
+    `);
+
+    // Make whatsapp NOT NULL and UNIQUE (if it's not already)
+    await db.execute(sql`
+      DO $$ BEGIN
+        ALTER TABLE users ALTER COLUMN whatsapp SET NOT NULL;
+      EXCEPTION
+        WHEN others THEN null;
+      END $$;
+    `);
+
+    await db.execute(sql`
+      DO $$ BEGIN
+        ALTER TABLE users ADD CONSTRAINT users_whatsapp_unique UNIQUE (whatsapp);
+      EXCEPTION
+        WHEN duplicate_object THEN null;
+      END $$;
+    `);
+
+    // Add is_active to departments if not exists
+    await db.execute(sql`
+      DO $$ BEGIN
+        ALTER TABLE departments ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1;
+      EXCEPTION
+        WHEN duplicate_column THEN null;
+      END $$;
+    `);
+
+    // Add is_hybrid to rooms if not exists
+    await db.execute(sql`
+      DO $$ BEGIN
+        ALTER TABLE rooms ADD COLUMN is_hybrid INTEGER NOT NULL DEFAULT 0;
+      EXCEPTION
+        WHEN duplicate_column THEN null;
+      END $$;
+    `);
+
     console.log('✅ Database schema pushed successfully!');
     process.exit(0);
   } catch (error) {
