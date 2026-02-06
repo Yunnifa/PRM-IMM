@@ -694,14 +694,6 @@ const DataUser = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
             <h2 className="text-xl font-bold mb-4">Tambah User</h2>
-            
-            {/* Info Password */}
-            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <p className="text-sm text-blue-800">
-                <strong>ℹ️ Info Password:</strong> Password akan dibuat otomatis dari <strong>nama depan (huruf kecil) + tanggal lahir (DDMMYYYY)</strong>
-              </p>
-              <p className="text-xs text-blue-600 mt-1">Contoh: Nama "John Doe", lahir 15 Mei 1990 → Password: "john15051990"</p>
-            </div>
 
             <div className="space-y-4">
               <div>
