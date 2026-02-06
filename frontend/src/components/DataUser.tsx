@@ -109,6 +109,7 @@ const DataUser = () => {
   };
 
   const handleEdit = (user: User) => {
+    console.log('Editing user:', user); // Debug log
     setEditingUser(user);
     setFormData({ 
       fullName: user.fullName, 
