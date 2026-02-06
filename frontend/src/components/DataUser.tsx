@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { userService, authService } from '../services/apiService';
+import { userService, authService, departmentService } from '../services/apiService';
 
 interface User {
   id: number;
@@ -14,6 +14,12 @@ interface User {
   department: string | null;
   role: string;
   createdAt: string;
+}
+
+interface Department {
+  id: number;
+  name: string;
+  description: string | null;
 }
 
 const DataUser = () => {
@@ -54,10 +60,23 @@ const DataUser = () => {
   const [dragOver, setDragOver] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
 
-  // Fetch users on mount
+  // State untuk departments dari data master
+  const [departments, setDepartments] = useState<Department[]>([]);
+
+  // Fetch users dan departments on mount
   useEffect(() => {
     fetchUsers();
+    fetchDepartments();
   }, []);
+
+  const fetchDepartments = async () => {
+    try {
+      const data = await departmentService.getAll();
+      setDepartments(data);
+    } catch (err) {
+      console.error('Gagal memuat data department:', err);
+    }
+  };
 
   const fetchUsers = async () => {
     try {
@@ -740,13 +759,16 @@ const DataUser = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
-                <input
-                  type="text"
+                <select
                   value={formData.department}
                   onChange={(e) => setFormData({ ...formData, department: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  placeholder="Nama department"
-                />
+                >
+                  <option value="">Pilih Department</option>
+                  {departments.map((dept) => (
+                    <option key={dept.id} value={dept.name}>{dept.name}</option>
+                  ))}
+                </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
@@ -830,12 +852,16 @@ const DataUser = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
-                <input
-                  type="text"
+                <select
                   value={formData.department}
                   onChange={(e) => setFormData({ ...formData, department: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                />
+                >
+                  <option value="">Pilih Department</option>
+                  {departments.map((dept) => (
+                    <option key={dept.id} value={dept.name}>{dept.name}</option>
+                  ))}
+                </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
