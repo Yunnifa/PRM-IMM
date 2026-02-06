@@ -128,14 +128,22 @@ const DataUser = () => {
   };
 
   const handleEdit = (user: User) => {
-    console.log('Editing user:', user); // Debug log
+    console.log('Editing user:', user);
+    console.log('User department:', user.department);
+    console.log('Available departments:', departments.map(d => d.name));
     setEditingUser(user);
+    
+    // Cari department yang match (case insensitive)
+    const matchedDept = departments.find(
+      d => d.name.toLowerCase() === (user.department || '').toLowerCase()
+    );
+    
     setFormData({ 
       fullName: user.fullName, 
       whatsapp: user.whatsapp || '',
       email: user.email, 
       birthDate: user.birthDate || '',
-      department: user.department || '', 
+      department: matchedDept ? matchedDept.name : (user.department || ''), 
       role: user.role as 'admin' | 'head_ga' | 'head_os' | 'user'
     });
     setShowEditModal(true);
@@ -858,6 +866,10 @@ const DataUser = () => {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">Pilih Department</option>
+                  {/* Tampilkan nilai saat ini jika tidak ada di list */}
+                  {formData.department && !departments.find(d => d.name === formData.department) && (
+                    <option value={formData.department}>{formData.department} (tidak ditemukan)</option>
+                  )}
                   {departments.map((dept) => (
                     <option key={dept.id} value={dept.name}>{dept.name}</option>
                   ))}
