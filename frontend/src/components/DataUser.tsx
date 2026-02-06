@@ -9,7 +9,8 @@ interface User {
   username: string;
   email: string;
   fullName: string;
-  whatsapp: string | null;
+  whatsapp: string;
+  birthDate: string | null;
   department: string | null;
   role: string;
   createdAt: string;
@@ -35,6 +36,7 @@ const DataUser = () => {
     fullName: '', 
     whatsapp: '', 
     email: '', 
+    birthDate: '',
     department: '', 
     role: 'user' as 'admin' | 'head_ga' | 'head_os' | 'user'
   });
@@ -71,12 +73,39 @@ const DataUser = () => {
     }
   };
 
-  const handleAdd = () => {
-    // Note: Untuk add user perlu endpoint register/create di backend
-    // Sementara ini hanya refresh data
-    alert('Fitur tambah user akan menggunakan endpoint register');
-    setShowAddModal(false);
-    fetchUsers();
+  const handleAdd = async () => {
+    // Validasi input
+    if (!formData.fullName || !formData.whatsapp || !formData.email || !formData.birthDate) {
+      alert('Nama, Nomor Telepon, Email, dan Tanggal Lahir wajib diisi');
+      return;
+    }
+
+    try {
+      // Generate username dari email
+      const username = formData.email.split('@')[0];
+      
+      const result = await authService.register({
+        username,
+        email: formData.email,
+        fullName: formData.fullName,
+        whatsapp: formData.whatsapp,
+        birthDate: formData.birthDate,
+        department: formData.department || undefined,
+        role: formData.role,
+      });
+      
+      // Show generated password to admin
+      if (result.generatedPassword) {
+        alert(`User berhasil ditambahkan!\n\nPassword yang dibuat otomatis: ${result.generatedPassword}\n\nPassword = Nama depan (huruf kecil) + Tanggal lahir (DDMMYYYY)\n\nContoh: john15051990`);
+      }
+      
+      setShowAddModal(false);
+      setFormData({ fullName: '', whatsapp: '', email: '', birthDate: '', department: '', role: 'user' });
+      fetchUsers();
+    } catch (err: any) {
+      alert(err.response?.data?.message || err.message || 'Gagal menambahkan user');
+      console.error('Error adding user:', err);
+    }
   };
 
   const handleEdit = (user: User) => {
@@ -85,6 +114,7 @@ const DataUser = () => {
       fullName: user.fullName, 
       whatsapp: user.whatsapp || '',
       email: user.email, 
+      birthDate: user.birthDate || '',
       department: user.department || '', 
       role: user.role as 'admin' | 'head_ga' | 'head_os' | 'user'
     });
@@ -96,7 +126,7 @@ const DataUser = () => {
       try {
         await userService.update(editingUser.id, formData);
         setEditingUser(null);
-        setFormData({ fullName: '', whatsapp: '', email: '', department: '', role: 'user' });
+        setFormData({ fullName: '', whatsapp: '', email: '', birthDate: '', department: '', role: 'user' });
         setShowEditModal(false);
         fetchUsers();
       } catch (err: any) {
@@ -661,20 +691,30 @@ const DataUser = () => {
       {/* Add Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
             <h2 className="text-xl font-bold mb-4">Tambah User</h2>
+            
+            {/* Info Password */}
+            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-sm text-blue-800">
+                <strong>ℹ️ Info Password:</strong> Password akan dibuat otomatis dari <strong>nama depan (huruf kecil) + tanggal lahir (DDMMYYYY)</strong>
+              </p>
+              <p className="text-xs text-blue-600 mt-1">Contoh: Nama "John Doe", lahir 15 Mei 1990 → Password: "john15051990"</p>
+            </div>
+
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Nama</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nama Lengkap <span className="text-red-500">*</span></label>
                 <input
                   type="text"
                   value={formData.fullName}
                   onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  placeholder="Masukkan nama lengkap"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Nomor Telepon (untuk login)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nomor Telepon (untuk login) <span className="text-red-500">*</span></label>
                 <input
                   type="tel"
                   value={formData.whatsapp}
@@ -684,11 +724,23 @@ const DataUser = () => {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Email (untuk notifikasi)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Tanggal Lahir <span className="text-red-500">*</span></label>
+                <input
+                  type="date"
+                  value={formData.birthDate}
+                  onChange={(e) => setFormData({ ...formData, birthDate: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  max={new Date().toISOString().split('T')[0]}
+                />
+                <p className="text-xs text-gray-500 mt-1">Digunakan untuk membuat password otomatis</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Email (untuk notifikasi) <span className="text-red-500">*</span></label>
                 <input
                   type="email"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  placeholder="email@company.com"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
               </div>
@@ -699,6 +751,7 @@ const DataUser = () => {
                   value={formData.department}
                   onChange={(e) => setFormData({ ...formData, department: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  placeholder="Nama department"
                 />
               </div>
               <div>
@@ -723,7 +776,10 @@ const DataUser = () => {
                 Simpan
               </button>
               <button
-                onClick={() => setShowAddModal(false)}
+                onClick={() => {
+                  setShowAddModal(false);
+                  setFormData({ fullName: '', whatsapp: '', email: '', birthDate: '', department: '', role: 'user' });
+                }}
                 className="flex-1 px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-lg font-medium"
               >
                 Batal
@@ -736,7 +792,7 @@ const DataUser = () => {
       {/* Edit Modal */}
       {showEditModal && editingUser && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
             <h2 className="text-xl font-bold mb-4">Edit User</h2>
             <div className="space-y-4">
               <div>
@@ -749,14 +805,25 @@ const DataUser = () => {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Nomor WhatsApp</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nomor WhatsApp (untuk login)</label>
                 <input
                   type="tel"
                   value={formData.whatsapp}
                   onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
-                  placeholder="6281234567890"
+                  placeholder="08xxxxxxxxxx"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Tanggal Lahir</label>
+                <input
+                  type="date"
+                  value={formData.birthDate}
+                  onChange={(e) => setFormData({ ...formData, birthDate: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  max={new Date().toISOString().split('T')[0]}
+                />
+                <p className="text-xs text-gray-500 mt-1">⚠️ Mengubah tanggal lahir akan mengubah password user</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
@@ -801,7 +868,7 @@ const DataUser = () => {
                 onClick={() => {
                   setShowEditModal(false);
                   setEditingUser(null);
-                  setFormData({ fullName: '', whatsapp: '', email: '', department: '', role: 'user' });
+                  setFormData({ fullName: '', whatsapp: '', email: '', birthDate: '', department: '', role: 'user' });
                 }}
                 className="flex-1 px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-lg font-medium"
               >

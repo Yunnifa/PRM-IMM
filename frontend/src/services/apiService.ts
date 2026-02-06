@@ -13,23 +13,24 @@ export interface User {
   username: string;
   email: string;
   fullName: string;
-  whatsapp: string | null;
+  whatsapp: string;
+  birthDate: string | null;
   department: string | null;
   role: string;
   createdAt: string;
 }
 
 export interface LoginRequest {
-  username: string;
+  whatsapp: string;
   password: string;
 }
 
 export interface RegisterRequest {
   username: string;
   email: string;
-  password: string;
   fullName: string;
-  whatsapp?: string;
+  whatsapp: string;
+  birthDate: string;
   department?: string;
   role?: 'admin' | 'head_ga' | 'head_os' | 'user';
 }
@@ -41,6 +42,7 @@ export interface AuthResponse {
     token: string;
     user: User;
   };
+  generatedPassword?: string;
 }
 
 export interface Department {
@@ -177,6 +179,7 @@ export interface UpdateUserInput {
   email?: string;
   fullName?: string;
   whatsapp?: string;
+  birthDate?: string;
   department?: string;
   role?: 'admin' | 'head_ga' | 'head_os' | 'user';
 }

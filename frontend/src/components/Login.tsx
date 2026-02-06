@@ -5,7 +5,7 @@ import { authService } from '../services/apiService';
 const Login = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
-    username: '',
+    whatsapp: '',
     password: ''
   });
   const [error, setError] = useState('');
@@ -16,8 +16,8 @@ const Login = () => {
     e.preventDefault();
     setError('');
 
-    if (!formData.username || !formData.password) {
-      setError('Username dan password harus diisi');
+    if (!formData.whatsapp || !formData.password) {
+      setError('Nomor telepon dan password harus diisi');
       return;
     }
 
@@ -35,7 +35,7 @@ const Login = () => {
         navigate('/admin/monitoring');
       }
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Login gagal. Periksa username dan password Anda.');
+      setError(err.response?.data?.message || 'Login gagal. Periksa nomor telepon dan password Anda.');
     } finally {
       setLoading(false);
     }
@@ -73,17 +73,17 @@ const Login = () => {
             )}
 
             <div>
-              <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-2">
-                Username
+              <label htmlFor="whatsapp" className="block text-sm font-medium text-gray-700 mb-2">
+                Nomor Telepon
               </label>
               <input
-                type="text"
-                id="username"
-                name="username"
-                value={formData.username}
+                type="tel"
+                id="whatsapp"
+                name="whatsapp"
+                value={formData.whatsapp}
                 onChange={handleChange}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
-                placeholder="Masukkan username"
+                placeholder="Masukkan nomor telepon (08xxxxxxxxxx)"
               />
             </div>
 
