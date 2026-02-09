@@ -32,7 +32,7 @@ export interface RegisterRequest {
   whatsapp: string;
   birthDate: string;
   department?: string;
-  role?: 'admin' | 'head' | 'ga' | 'user';
+  role?: 'admin' | 'head_dept' | 'ga' | 'user';
 }
 
 export interface AuthResponse {
@@ -181,7 +181,7 @@ export interface UpdateUserInput {
   whatsapp?: string;
   birthDate?: string;
   department?: string;
-  role?: 'admin' | 'head' | 'ga' | 'user';
+  role?: 'admin' | 'head_dept' | 'ga' | 'user';
 }
 
 /**

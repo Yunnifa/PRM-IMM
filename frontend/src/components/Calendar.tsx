@@ -625,9 +625,9 @@ const Calendar = () => {
                           ) : meeting.headDept === 'rejected' ? (
                             <p className="font-semibold text-red-600">Ditolak Head Dept</p>
                           ) : meeting.ga === 'pending' ? (
-                            <p className="font-semibold text-yellow-600">Menunggu GA</p>
+                            <p className="font-semibold text-yellow-600">Menunggu General Affairs</p>
                           ) : meeting.ga === 'rejected' ? (
-                            <p className="font-semibold text-red-600">Ditolak GA</p>
+                            <p className="font-semibold text-red-600">Ditolak General Affairs</p>
                           ) : (
                             <p className="font-semibold text-green-600">Approved</p>
                           )}

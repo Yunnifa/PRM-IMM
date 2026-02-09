@@ -276,7 +276,7 @@ const DataMonitoring = () => {
       'Ruangan': m.namaRuangan,
       'Fasilitas': m.fasilitas,
       'Head Dept': m.headDept,
-      'GA': m.ga
+      'General Affairs': m.ga
     }));
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
@@ -287,7 +287,7 @@ const DataMonitoring = () => {
   const exportToCSV = () => {
     setShowExportDropdown(false);
     // CSV export implementation
-    const headers = ['ID', 'Nama', 'Department', 'Tanggal', 'Hari', 'Jam Mulai', 'Jam Berakhir', 'Jumlah Peserta', 'Agenda', 'Ruangan', 'Fasilitas', 'Head Dept', 'GA'];
+    const headers = ['ID', 'Nama', 'Department', 'Tanggal', 'Hari', 'Jam Mulai', 'Jam Berakhir', 'Jumlah Peserta', 'Agenda', 'Ruangan', 'Fasilitas', 'Head Dept', 'General Affairs'];
     const csvData = filteredMeetings.map(m => [
       m.id, m.nama, m.department, m.tanggal, m.hari, m.jamMulai, m.jamBerakhir, 
       m.jumlahPeserta, m.agenda, m.namaRuangan, m.fasilitas, m.headDept, m.ga
@@ -316,7 +316,7 @@ const DataMonitoring = () => {
     
     autoTable(doc, {
       startY: 30,
-      head: [['ID', 'Nama', 'Department', 'Tanggal', 'Jam', 'Peserta', 'Agenda', 'Ruangan', 'Head Dept', 'GA']],
+      head: [['ID', 'Nama', 'Department', 'Tanggal', 'Jam', 'Peserta', 'Agenda', 'Ruangan', 'Head Dept', 'General Affairs']],
       body: filteredMeetings.map(m => [
         m.id, m.nama, m.department, m.tanggal, 
         `${m.jamMulai}-${m.jamBerakhir}`, m.jumlahPeserta, 
@@ -710,7 +710,7 @@ const DataMonitoring = () => {
                       )}
                     </td>
                     <td className="px-2 lg:px-4 py-2 lg:py-3 text-xs lg:text-sm">
-                      {/* GA - Can approve/reject independently */}
+                      {/* General Affairs - Can approve/reject independently */}
                       {meeting.ga === 'pending' ? (
                         <div className="flex gap-1">
                           <button
@@ -950,7 +950,7 @@ const DataMonitoring = () => {
                   {confirmAction.type.includes('approve') ? 'Approve Permohonan' : 'Reject Permohonan'}
                 </h2>
                 <p className="text-sm text-gray-600">
-                  {confirmAction.type.includes('HeadDept') ? 'Head Department' : 'General Affair (GA)'}
+                  {confirmAction.type.includes('HeadDept') ? 'Head Department' : 'General Affairs'}
                 </p>
               </div>
             </div>
