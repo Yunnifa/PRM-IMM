@@ -27,7 +27,7 @@ interface MeetingRequestEmailData {
 interface ApproverInfo {
   email: string;
   fullName: string;
-  role: 'head' | 'ga';
+  role: 'head_dept' | 'ga';
 }
 
 /**
@@ -41,7 +41,7 @@ export async function sendMeetingRequestNotification(
   const loginUrl = `${frontendUrl}/login?redirect=/monitoring`;
 
   for (const approver of approvers) {
-    const roleLabel = approver.role === 'head' ? 'Head Department' : 'General Affair';
+    const roleLabel = approver.role === 'head_dept' ? 'Head Department' : 'General Affairs';
     
     const htmlContent = `
 <!DOCTYPE html>
@@ -254,11 +254,11 @@ export async function sendApprovalNotification(
   requesterEmail: string,
   requesterName: string,
   meetingData: MeetingRequestEmailData,
-  approverRole: 'head' | 'ga',
+  approverRole: 'head_dept' | 'ga',
   action: 'approved' | 'rejected',
   notes?: string
 ): Promise<void> {
-  const roleLabel = approverRole === 'head' ? 'Head Department' : 'General Affair';
+  const roleLabel = approverRole === 'head_dept' ? 'Head Department' : 'General Affairs';
   const actionLabel = action === 'approved' ? 'Disetujui' : 'Ditolak';
   const actionColor = action === 'approved' ? '#10b981' : '#ef4444';
   const actionEmoji = action === 'approved' ? '✅' : '❌';

@@ -25,7 +25,7 @@ const UpdateUserSchema = z.object({
   whatsapp: z.string().optional(),
   birthDate: z.string().optional(),
   department: z.string().optional(),
-  role: z.enum(['admin', 'head', 'ga', 'user']).optional(),
+  role: z.enum(['admin', 'head_dept', 'ga', 'user']).optional(),
   isActive: z.number().optional(),
 });
 

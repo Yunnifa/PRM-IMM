@@ -183,21 +183,21 @@ app.openapi(createMeetingRequestRoute, async (c) => {
 
   // Send email notifications to Head Dept and GA
   try {
-    // Find Head of the same department as requester
-    const headDept = await db.select({
+    // Find Head Department user for this specific department only
+    const headDeptUsers = await db.select({
       email: users.email,
       fullName: users.fullName,
     })
     .from(users)
     .where(
       and(
-        eq(users.role, 'head'),
-        eq(users.department, data.department),
+        eq(users.role, 'head_dept'),
+        eq(users.department, data.department), // Only Head Dept of same department
         eq(users.isActive, 1)
       )
     );
 
-    // Find all GA users
+    // Find General Affair users (GA can approve all departments)
     const gaUsers = await db.select({
       email: users.email,
       fullName: users.fullName,
@@ -211,10 +211,10 @@ app.openapi(createMeetingRequestRoute, async (c) => {
     );
 
     // Prepare approvers list
-    const approvers: { email: string; fullName: string; role: 'head' | 'ga' }[] = [];
+    const approvers: { email: string; fullName: string; role: 'head_dept' | 'ga' }[] = [];
     
-    headDept.forEach(h => {
-      approvers.push({ email: h.email, fullName: h.fullName, role: 'head' });
+    headDeptUsers.forEach(h => {
+      approvers.push({ email: h.email, fullName: h.fullName, role: 'head_dept' });
     });
     
     gaUsers.forEach(g => {
@@ -336,14 +336,14 @@ app.openapi(updateApprovalRoute, async (c) => {
       break;
     case 'approveGA':
       updateData = { ga: 'approved' };
-      historyAction = 'Approved by General Affair';
-      historyBy = 'General Affair';
+      historyAction = 'Approved by General Affairs';
+      historyBy = 'General Affairs';
       historyStatus = 'approved';
       break;
     case 'rejectGA':
       updateData = { ga: 'rejected' };
-      historyAction = 'Rejected by General Affair';
-      historyBy = 'General Affair';
+      historyAction = 'Rejected by General Affairs';
+      historyBy = 'General Affairs';
       historyStatus = 'rejected';
       break;
   }
@@ -372,7 +372,7 @@ app.openapi(updateApprovalRoute, async (c) => {
     .where(eq(users.id, updated.userId));
 
     if (requester) {
-      const approverRole = type.includes('HeadDept') ? 'head' : 'ga';
+      const approverRole = type.includes('HeadDept') ? 'head_dept' : 'ga';
       const action = type.includes('approve') ? 'approved' : 'rejected';
       
       await sendApprovalNotification(

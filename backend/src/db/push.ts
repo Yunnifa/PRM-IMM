@@ -7,10 +7,10 @@ async function push() {
   
   try {
     // Create enums if they don't exist
-    // Note: New role enum is ['admin', 'head', 'ga', 'user']
+    // Note: New role enum is ['admin', 'head_dept', 'ga', 'user']
     await db.execute(sql`
       DO $$ BEGIN
-        CREATE TYPE role AS ENUM ('admin', 'head', 'ga', 'user');
+        CREATE TYPE role AS ENUM ('admin', 'head_dept', 'ga', 'user');
       EXCEPTION
         WHEN duplicate_object THEN null;
       END $$;
@@ -21,7 +21,7 @@ async function push() {
     await db.execute(sql`
       DO $$ BEGIN
         -- Add new values to existing enum if they don't exist
-        ALTER TYPE role ADD VALUE IF NOT EXISTS 'head';
+        ALTER TYPE role ADD VALUE IF NOT EXISTS 'head_dept';
         ALTER TYPE role ADD VALUE IF NOT EXISTS 'ga';
       EXCEPTION
         WHEN others THEN null;
@@ -30,7 +30,10 @@ async function push() {
 
     // Update existing users with old roles to new roles
     await db.execute(sql`
-      UPDATE users SET role = 'head' WHERE role = 'head_ga' OR role = 'head_os';
+      UPDATE users SET role = 'head_dept' WHERE role = 'head_ga';
+    `);
+    await db.execute(sql`
+      UPDATE users SET role = 'ga' WHERE role = 'head_os';
     `);
 
     await db.execute(sql`
@@ -201,30 +204,15 @@ async function push() {
       END $$;
     `);
 
-    // Migration: Rename head_ga to head_dept and head_os to ga if old columns exist
-    console.log('🔧 Migrating meeting_requests columns...');
+    // NOTE: DB columns for meeting_requests stay as head_ga and head_os
+    // The schema.ts uses Drizzle's column mapping to use TypeScript names headDept and ga
+    // headDept: approvalStatusEnum('head_ga') -> TypeScript 'headDept' maps to DB column 'head_ga'
+    // ga: approvalStatusEnum('head_os') -> TypeScript 'ga' maps to DB column 'head_os'
+    
+    // Add approval columns if they don't exist (for fresh installations)
     await db.execute(sql`
       DO $$ BEGIN
-        -- Rename head_ga to head_dept if exists
-        ALTER TABLE meeting_requests RENAME COLUMN head_ga TO head_dept;
-      EXCEPTION
-        WHEN undefined_column THEN null;
-      END $$;
-    `);
-
-    await db.execute(sql`
-      DO $$ BEGIN
-        -- Rename head_os to ga if exists
-        ALTER TABLE meeting_requests RENAME COLUMN head_os TO ga;
-      EXCEPTION
-        WHEN undefined_column THEN null;
-      END $$;
-    `);
-
-    // Add new columns if they don't exist (for fresh installations)
-    await db.execute(sql`
-      DO $$ BEGIN
-        ALTER TABLE meeting_requests ADD COLUMN head_dept approval_status NOT NULL DEFAULT 'pending';
+        ALTER TABLE meeting_requests ADD COLUMN head_ga approval_status NOT NULL DEFAULT 'pending';
       EXCEPTION
         WHEN duplicate_column THEN null;
       END $$;
@@ -232,7 +220,7 @@ async function push() {
 
     await db.execute(sql`
       DO $$ BEGIN
-        ALTER TABLE meeting_requests ADD COLUMN ga approval_status NOT NULL DEFAULT 'pending';
+        ALTER TABLE meeting_requests ADD COLUMN head_os approval_status NOT NULL DEFAULT 'pending';
       EXCEPTION
         WHEN duplicate_column THEN null;
       END $$;

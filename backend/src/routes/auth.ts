@@ -20,7 +20,7 @@ const RegisterSchema = z.object({
   whatsapp: z.string().min(10, 'Nomor telepon minimal 10 digit'),
   birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Format tanggal harus YYYY-MM-DD'),
   department: z.string().optional(),
-  role: z.enum(['admin', 'head', 'ga', 'user']).optional(),
+  role: z.enum(['admin', 'head_dept', 'ga', 'user']).optional(),
 });
 
 const UserResponseSchema = z.object({

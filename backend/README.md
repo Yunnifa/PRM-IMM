@@ -148,9 +148,9 @@ Setelah server berjalan, akses:
 
 ### User Roles
 
-- `admin` - Full access
-- `head_ga` - Approve/Reject GA
-- `head_os` - Approve/Reject OS
+- `admin` - Full access (superadmin)
+- `head_dept` - Head Department - Approve/Reject requests from their own department only
+- `ga` - General Affairs - Approve/Reject all requests (after Head Dept approval)
 - `user` - Submit requests
 
 ## Drizzle Commands
