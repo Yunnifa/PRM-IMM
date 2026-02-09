@@ -7,12 +7,30 @@ async function push() {
   
   try {
     // Create enums if they don't exist
+    // Note: New role enum is ['admin', 'head', 'ga', 'user']
     await db.execute(sql`
       DO $$ BEGIN
-        CREATE TYPE role AS ENUM ('admin', 'head_ga', 'head_os', 'user');
+        CREATE TYPE role AS ENUM ('admin', 'head', 'ga', 'user');
       EXCEPTION
         WHEN duplicate_object THEN null;
       END $$;
+    `);
+
+    // Migrate existing role values if old enum exists
+    console.log('🔧 Checking for role migration...');
+    await db.execute(sql`
+      DO $$ BEGIN
+        -- Add new values to existing enum if they don't exist
+        ALTER TYPE role ADD VALUE IF NOT EXISTS 'head';
+        ALTER TYPE role ADD VALUE IF NOT EXISTS 'ga';
+      EXCEPTION
+        WHEN others THEN null;
+      END $$;
+    `);
+
+    // Update existing users with old roles to new roles
+    await db.execute(sql`
+      UPDATE users SET role = 'head' WHERE role = 'head_ga' OR role = 'head_os';
     `);
 
     await db.execute(sql`
@@ -106,8 +124,8 @@ async function push() {
         agenda TEXT NOT NULL,
         nama_ruangan VARCHAR(100) NOT NULL,
         fasilitas TEXT NOT NULL,
-        head_ga approval_status NOT NULL DEFAULT 'pending',
-        head_os approval_status NOT NULL DEFAULT 'pending',
+        head_dept approval_status NOT NULL DEFAULT 'pending',
+        ga approval_status NOT NULL DEFAULT 'pending',
         created_at TIMESTAMP DEFAULT NOW() NOT NULL,
         updated_at TIMESTAMP DEFAULT NOW() NOT NULL
       );
@@ -178,6 +196,43 @@ async function push() {
     await db.execute(sql`
       DO $$ BEGIN
         ALTER TABLE rooms ADD COLUMN is_hybrid INTEGER NOT NULL DEFAULT 0;
+      EXCEPTION
+        WHEN duplicate_column THEN null;
+      END $$;
+    `);
+
+    // Migration: Rename head_ga to head_dept and head_os to ga if old columns exist
+    console.log('🔧 Migrating meeting_requests columns...');
+    await db.execute(sql`
+      DO $$ BEGIN
+        -- Rename head_ga to head_dept if exists
+        ALTER TABLE meeting_requests RENAME COLUMN head_ga TO head_dept;
+      EXCEPTION
+        WHEN undefined_column THEN null;
+      END $$;
+    `);
+
+    await db.execute(sql`
+      DO $$ BEGIN
+        -- Rename head_os to ga if exists
+        ALTER TABLE meeting_requests RENAME COLUMN head_os TO ga;
+      EXCEPTION
+        WHEN undefined_column THEN null;
+      END $$;
+    `);
+
+    // Add new columns if they don't exist (for fresh installations)
+    await db.execute(sql`
+      DO $$ BEGIN
+        ALTER TABLE meeting_requests ADD COLUMN head_dept approval_status NOT NULL DEFAULT 'pending';
+      EXCEPTION
+        WHEN duplicate_column THEN null;
+      END $$;
+    `);
+
+    await db.execute(sql`
+      DO $$ BEGIN
+        ALTER TABLE meeting_requests ADD COLUMN ga approval_status NOT NULL DEFAULT 'pending';
       EXCEPTION
         WHEN duplicate_column THEN null;
       END $$;

@@ -1,7 +1,8 @@
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi';
 import { db } from '../db';
-import { meetingRequests, meetingRequestHistory } from '../db/schema';
-import { eq, desc } from 'drizzle-orm';
+import { meetingRequests, meetingRequestHistory, users } from '../db/schema';
+import { eq, desc, and, or } from 'drizzle-orm';
+import { sendMeetingRequestNotification, sendApprovalNotification } from '../services/emailService';
 
 const app = new OpenAPIHono();
 
@@ -28,8 +29,8 @@ const MeetingRequestSchema = z.object({
   agenda: z.string(),
   namaRuangan: z.string(),
   fasilitas: z.string(),
-  headGA: z.enum(['pending', 'approved', 'rejected']),
-  headOS: z.enum(['pending', 'approved', 'rejected']),
+  headDept: z.enum(['pending', 'approved', 'rejected']),
+  ga: z.enum(['pending', 'approved', 'rejected']),
   history: z.array(HistorySchema),
   createdAt: z.string(),
 });
@@ -50,7 +51,7 @@ const CreateMeetingRequestSchema = z.object({
 });
 
 const UpdateApprovalSchema = z.object({
-  type: z.enum(['approveGA', 'rejectGA', 'approveOS', 'rejectOS']),
+  type: z.enum(['approveHeadDept', 'rejectHeadDept', 'approveGA', 'rejectGA']),
   notes: z.string().optional(),
 });
 
@@ -112,8 +113,8 @@ app.openapi(getMeetingRequestsRoute, async (c) => {
         agenda: request.agenda,
         namaRuangan: request.namaRuangan,
         fasilitas: request.fasilitas,
-        headGA: request.headGA,
-        headOS: request.headOS,
+        headDept: request.headDept,
+        ga: request.ga,
         history: history.map(h => ({
           timestamp: h.timestamp?.toISOString() || '',
           action: h.action,
@@ -180,6 +181,70 @@ app.openapi(createMeetingRequestRoute, async (c) => {
     status: 'submitted',
   });
 
+  // Send email notifications to Head Dept and GA
+  try {
+    // Find Head of the same department as requester
+    const headDept = await db.select({
+      email: users.email,
+      fullName: users.fullName,
+    })
+    .from(users)
+    .where(
+      and(
+        eq(users.role, 'head'),
+        eq(users.department, data.department),
+        eq(users.isActive, 1)
+      )
+    );
+
+    // Find all GA users
+    const gaUsers = await db.select({
+      email: users.email,
+      fullName: users.fullName,
+    })
+    .from(users)
+    .where(
+      and(
+        eq(users.role, 'ga'),
+        eq(users.isActive, 1)
+      )
+    );
+
+    // Prepare approvers list
+    const approvers: { email: string; fullName: string; role: 'head' | 'ga' }[] = [];
+    
+    headDept.forEach(h => {
+      approvers.push({ email: h.email, fullName: h.fullName, role: 'head' });
+    });
+    
+    gaUsers.forEach(g => {
+      approvers.push({ email: g.email, fullName: g.fullName, role: 'ga' });
+    });
+
+    if (approvers.length > 0) {
+      await sendMeetingRequestNotification({
+        requestId: newRequest.requestId,
+        nama: newRequest.nama,
+        whatsapp: newRequest.whatsapp,
+        department: newRequest.department,
+        tanggal: newRequest.tanggal,
+        hari: newRequest.hari,
+        jamMulai: newRequest.jamMulai,
+        jamBerakhir: newRequest.jamBerakhir,
+        jumlahPeserta: newRequest.jumlahPeserta,
+        agenda: newRequest.agenda,
+        namaRuangan: newRequest.namaRuangan,
+        fasilitas: newRequest.fasilitas,
+      }, approvers);
+      console.log(`📧 Email notifications sent to ${approvers.length} approvers`);
+    } else {
+      console.log('⚠️ No approvers found for email notification');
+    }
+  } catch (emailError) {
+    console.error('❌ Failed to send email notifications:', emailError);
+    // Don't fail the request if email fails
+  }
+
   const history = await db.select()
     .from(meetingRequestHistory)
     .where(eq(meetingRequestHistory.meetingRequestId, newRequest.id));
@@ -200,8 +265,8 @@ app.openapi(createMeetingRequestRoute, async (c) => {
       agenda: newRequest.agenda,
       namaRuangan: newRequest.namaRuangan,
       fasilitas: newRequest.fasilitas,
-      headGA: newRequest.headGA,
-      headOS: newRequest.headOS,
+      headDept: newRequest.headDept,
+      ga: newRequest.ga,
       history: history.map(h => ({
         timestamp: h.timestamp?.toISOString() || '',
         action: h.action,
@@ -257,28 +322,28 @@ app.openapi(updateApprovalRoute, async (c) => {
   let historyStatus: 'approved' | 'rejected' = 'approved';
 
   switch (type) {
+    case 'approveHeadDept':
+      updateData = { headDept: 'approved' };
+      historyAction = 'Approved by Head Department';
+      historyBy = 'Head Department';
+      historyStatus = 'approved';
+      break;
+    case 'rejectHeadDept':
+      updateData = { headDept: 'rejected' };
+      historyAction = 'Rejected by Head Department';
+      historyBy = 'Head Department';
+      historyStatus = 'rejected';
+      break;
     case 'approveGA':
-      updateData = { headGA: 'approved' };
-      historyAction = 'Approved by Head GA';
-      historyBy = 'Head GA';
+      updateData = { ga: 'approved' };
+      historyAction = 'Approved by General Affair';
+      historyBy = 'General Affair';
       historyStatus = 'approved';
       break;
     case 'rejectGA':
-      updateData = { headGA: 'rejected' };
-      historyAction = 'Rejected by Head GA';
-      historyBy = 'Head GA';
-      historyStatus = 'rejected';
-      break;
-    case 'approveOS':
-      updateData = { headOS: 'approved' };
-      historyAction = 'Approved by Head OS';
-      historyBy = 'Head OS';
-      historyStatus = 'approved';
-      break;
-    case 'rejectOS':
-      updateData = { headOS: 'rejected' };
-      historyAction = 'Rejected by Head OS';
-      historyBy = 'Head OS';
+      updateData = { ga: 'rejected' };
+      historyAction = 'Rejected by General Affair';
+      historyBy = 'General Affair';
       historyStatus = 'rejected';
       break;
   }
@@ -295,6 +360,48 @@ app.openapi(updateApprovalRoute, async (c) => {
     status: historyStatus,
     notes: notes || null,
   });
+
+  // Send email notification to the requester about approval/rejection
+  try {
+    // Find the requester's email
+    const [requester] = await db.select({
+      email: users.email,
+      fullName: users.fullName,
+    })
+    .from(users)
+    .where(eq(users.id, updated.userId));
+
+    if (requester) {
+      const approverRole = type.includes('HeadDept') ? 'head' : 'ga';
+      const action = type.includes('approve') ? 'approved' : 'rejected';
+      
+      await sendApprovalNotification(
+        requester.email,
+        requester.fullName,
+        {
+          requestId: updated.requestId,
+          nama: updated.nama,
+          whatsapp: updated.whatsapp,
+          department: updated.department,
+          tanggal: updated.tanggal,
+          hari: updated.hari,
+          jamMulai: updated.jamMulai,
+          jamBerakhir: updated.jamBerakhir,
+          jumlahPeserta: updated.jumlahPeserta,
+          agenda: updated.agenda,
+          namaRuangan: updated.namaRuangan,
+          fasilitas: updated.fasilitas,
+        },
+        approverRole,
+        action,
+        notes
+      );
+      console.log(`📧 Approval notification sent to ${requester.email}`);
+    }
+  } catch (emailError) {
+    console.error('❌ Failed to send approval notification:', emailError);
+    // Don't fail the request if email fails
+  }
 
   const history = await db.select()
     .from(meetingRequestHistory)
@@ -317,8 +424,8 @@ app.openapi(updateApprovalRoute, async (c) => {
       agenda: updated.agenda,
       namaRuangan: updated.namaRuangan,
       fasilitas: updated.fasilitas,
-      headGA: updated.headGA,
-      headOS: updated.headOS,
+      headDept: updated.headDept,
+      ga: updated.ga,
       history: history.map(h => ({
         timestamp: h.timestamp?.toISOString() || '',
         action: h.action,
@@ -408,8 +515,8 @@ app.openapi(updateMeetingRoute, async (c) => {
       agenda: updated.agenda,
       namaRuangan: updated.namaRuangan,
       fasilitas: updated.fasilitas,
-      headGA: updated.headGA,
-      headOS: updated.headOS,
+      headDept: updated.headDept,
+      ga: updated.ga,
       history: history.map(h => ({
         timestamp: h.timestamp?.toISOString() || '',
         action: h.action,

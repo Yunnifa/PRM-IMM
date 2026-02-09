@@ -2,7 +2,8 @@ import { pgTable, serial, varchar, text, timestamp, integer, pgEnum } from 'driz
 import { relations } from 'drizzle-orm';
 
 // Enums
-export const roleEnum = pgEnum('role', ['admin', 'head_ga', 'head_os', 'user']);
+// Roles: admin (superadmin), head (Head Dept untuk approval), ga (General Affair), user (public tanpa login)
+export const roleEnum = pgEnum('role', ['admin', 'head', 'ga', 'user']);
 export const approvalStatusEnum = pgEnum('approval_status', ['pending', 'approved', 'rejected']);
 export const historyStatusEnum = pgEnum('history_status', ['submitted', 'approved', 'rejected']);
 
@@ -79,8 +80,8 @@ export const meetingRequests = pgTable('meeting_requests', {
   agenda: text('agenda').notNull(),
   namaRuangan: varchar('nama_ruangan', { length: 100 }).notNull(),
   fasilitas: text('fasilitas').notNull(),
-  headGA: approvalStatusEnum('head_ga').notNull().default('pending'),
-  headOS: approvalStatusEnum('head_os').notNull().default('pending'),
+  headDept: approvalStatusEnum('head_dept').notNull().default('pending'), // Approval dari Head Department requester
+  ga: approvalStatusEnum('ga').notNull().default('pending'), // Approval dari General Affair
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
