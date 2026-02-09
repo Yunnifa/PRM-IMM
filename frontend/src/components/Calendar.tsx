@@ -46,8 +46,8 @@ interface Meeting {
   agenda: string;
   tanggal: string; // format: YYYY-MM-DD
   hari: string;
-  headGA: 'pending' | 'approved' | 'rejected';
-  headOS: 'pending' | 'approved' | 'rejected';
+  headDept: 'pending' | 'approved' | 'rejected';
+  ga: 'pending' | 'approved' | 'rejected';
 }
 
 const Calendar = () => {
@@ -225,8 +225,8 @@ const Calendar = () => {
     const bookedMeetings = meetings.filter(m => 
       m.tanggal === dateStr && 
       m.namaRuangan === roomName &&
-      m.headGA === 'approved' && 
-      m.headOS === 'approved'
+      m.headDept === 'approved' && 
+      m.ga === 'approved'
     );
     
     // Convert time strings to minutes for comparison
@@ -255,8 +255,8 @@ const Calendar = () => {
     const bookedMeetings = meetings.filter(m => 
       m.tanggal === dateStr && 
       m.namaRuangan === roomName &&
-      m.headGA === 'approved' && 
-      m.headOS === 'approved'
+      m.headDept === 'approved' && 
+      m.ga === 'approved'
     );
     
     return {
@@ -514,8 +514,8 @@ const Calendar = () => {
                   <div className="w-full flex flex-col gap-0.5 overflow-hidden">
                     {dayMeetings.slice(0, 2).map((meeting) => {
                       // Status based on both approvals
-                      const isApproved = meeting.headGA === 'approved' && meeting.headOS === 'approved';
-                      const isRejected = meeting.headGA === 'rejected' || meeting.headOS === 'rejected';
+                      const isApproved = meeting.headDept === 'approved' && meeting.ga === 'approved';
+                      const isRejected = meeting.headDept === 'rejected' || meeting.ga === 'rejected';
                       return (
                         <div 
                           key={meeting.id} 
@@ -576,8 +576,8 @@ const Calendar = () => {
             ) : (
               <div className="space-y-2">
                 {getMeetingsForDate(selectedDate).map((meeting) => {
-                  const isApproved = meeting.headGA === 'approved' && meeting.headOS === 'approved';
-                  const isRejected = meeting.headGA === 'rejected' || meeting.headOS === 'rejected';
+                  const isApproved = meeting.headDept === 'approved' && meeting.ga === 'approved';
+                  const isRejected = meeting.headDept === 'rejected' || meeting.ga === 'rejected';
                   const statusText = isApproved ? 'Disetujui' : isRejected ? 'Ditolak' : 'Menunggu';
                   const statusColor = isApproved ? 'bg-green-100 text-green-800' : isRejected ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800';
                   
@@ -620,14 +620,14 @@ const Calendar = () => {
                         </div>
                         <div>
                           <p className="text-xs text-gray-600">Status Approval</p>
-                          {meeting.headGA === 'pending' ? (
-                            <p className="font-semibold text-yellow-600">Menunggu Head GA</p>
-                          ) : meeting.headGA === 'rejected' ? (
-                            <p className="font-semibold text-red-600">Ditolak Head GA</p>
-                          ) : meeting.headOS === 'pending' ? (
-                            <p className="font-semibold text-yellow-600">Menunggu Head OS</p>
-                          ) : meeting.headOS === 'rejected' ? (
-                            <p className="font-semibold text-red-600">Ditolak Head OS</p>
+                          {meeting.headDept === 'pending' ? (
+                            <p className="font-semibold text-yellow-600">Menunggu Head Dept</p>
+                          ) : meeting.headDept === 'rejected' ? (
+                            <p className="font-semibold text-red-600">Ditolak Head Dept</p>
+                          ) : meeting.ga === 'pending' ? (
+                            <p className="font-semibold text-yellow-600">Menunggu GA</p>
+                          ) : meeting.ga === 'rejected' ? (
+                            <p className="font-semibold text-red-600">Ditolak GA</p>
                           ) : (
                             <p className="font-semibold text-green-600">Approved</p>
                           )}

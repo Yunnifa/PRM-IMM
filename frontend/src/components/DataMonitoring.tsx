@@ -27,8 +27,8 @@ interface MeetingData {
   agenda: string;
   namaRuangan: string;
   fasilitas: string;
-  headGA: 'pending' | 'approved' | 'rejected';
-  headOS: 'pending' | 'approved' | 'rejected';
+  headDept: 'pending' | 'approved' | 'rejected';
+  ga: 'pending' | 'approved' | 'rejected';
   history: HistoryEntry[];
 }
 
@@ -70,7 +70,7 @@ const DataMonitoring = () => {
   const [selectedMeetingForHistory, setSelectedMeetingForHistory] = useState<MeetingData | null>(null);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [confirmAction, setConfirmAction] = useState<{
-    type: 'approveGA' | 'rejectGA' | 'approveOS' | 'rejectOS';
+    type: 'approveHeadDept' | 'rejectHeadDept' | 'approveGA' | 'rejectGA';
     meetingId: number;
     meetingData: MeetingData | null;
   } | null>(null);
@@ -99,6 +99,24 @@ const DataMonitoring = () => {
     }
   };
 
+  const handleApproveHeadDept = (id: number) => {
+    const meeting = meetings.find(m => m.id === id);
+    if (meeting) {
+      setConfirmAction({ type: 'approveHeadDept', meetingId: id, meetingData: meeting });
+      setShowConfirmModal(true);
+      setConfirmNotes('');
+    }
+  };
+
+  const handleRejectHeadDept = (id: number) => {
+    const meeting = meetings.find(m => m.id === id);
+    if (meeting) {
+      setConfirmAction({ type: 'rejectHeadDept', meetingId: id, meetingData: meeting });
+      setShowConfirmModal(true);
+      setConfirmNotes('');
+    }
+  };
+
   const handleApproveGA = (id: number) => {
     const meeting = meetings.find(m => m.id === id);
     if (meeting) {
@@ -112,24 +130,6 @@ const DataMonitoring = () => {
     const meeting = meetings.find(m => m.id === id);
     if (meeting) {
       setConfirmAction({ type: 'rejectGA', meetingId: id, meetingData: meeting });
-      setShowConfirmModal(true);
-      setConfirmNotes('');
-    }
-  };
-
-  const handleApproveOS = (id: number) => {
-    const meeting = meetings.find(m => m.id === id);
-    if (meeting) {
-      setConfirmAction({ type: 'approveOS', meetingId: id, meetingData: meeting });
-      setShowConfirmModal(true);
-      setConfirmNotes('');
-    }
-  };
-
-  const handleRejectOS = (id: number) => {
-    const meeting = meetings.find(m => m.id === id);
-    if (meeting) {
-      setConfirmAction({ type: 'rejectOS', meetingId: id, meetingData: meeting });
       setShowConfirmModal(true);
       setConfirmNotes('');
     }
@@ -197,16 +197,16 @@ const DataMonitoring = () => {
   };
 
   const filteredMeetings = meetings.filter(meeting => {
-    // For filter, check both headGA and headOS status
+    // For filter, check both headDept and ga status
     let matchesStatus = false;
     if (filterStatus === 'all') {
       matchesStatus = true;
     } else if (filterStatus === 'pending') {
-      matchesStatus = meeting.headGA === 'pending' || meeting.headOS === 'pending';
+      matchesStatus = meeting.headDept === 'pending' || meeting.ga === 'pending';
     } else if (filterStatus === 'approved') {
-      matchesStatus = meeting.headGA === 'approved' && meeting.headOS === 'approved';
+      matchesStatus = meeting.headDept === 'approved' && meeting.ga === 'approved';
     } else if (filterStatus === 'rejected') {
-      matchesStatus = meeting.headGA === 'rejected' || meeting.headOS === 'rejected';
+      matchesStatus = meeting.headDept === 'rejected' || meeting.ga === 'rejected';
     }
     
     const matchesSearch = 
@@ -275,8 +275,8 @@ const DataMonitoring = () => {
       'Agenda': m.agenda,
       'Ruangan': m.namaRuangan,
       'Fasilitas': m.fasilitas,
-      'Head GA': m.headGA,
-      'Head OS': m.headOS
+      'Head Dept': m.headDept,
+      'GA': m.ga
     }));
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
@@ -287,10 +287,10 @@ const DataMonitoring = () => {
   const exportToCSV = () => {
     setShowExportDropdown(false);
     // CSV export implementation
-    const headers = ['ID', 'Nama', 'Department', 'Tanggal', 'Hari', 'Jam Mulai', 'Jam Berakhir', 'Jumlah Peserta', 'Agenda', 'Ruangan', 'Fasilitas', 'Head GA', 'Head OS'];
+    const headers = ['ID', 'Nama', 'Department', 'Tanggal', 'Hari', 'Jam Mulai', 'Jam Berakhir', 'Jumlah Peserta', 'Agenda', 'Ruangan', 'Fasilitas', 'Head Dept', 'GA'];
     const csvData = filteredMeetings.map(m => [
       m.id, m.nama, m.department, m.tanggal, m.hari, m.jamMulai, m.jamBerakhir, 
-      m.jumlahPeserta, m.agenda, m.namaRuangan, m.fasilitas, m.headGA, m.headOS
+      m.jumlahPeserta, m.agenda, m.namaRuangan, m.fasilitas, m.headDept, m.ga
     ]);
     
     const csvContent = [
@@ -316,11 +316,11 @@ const DataMonitoring = () => {
     
     autoTable(doc, {
       startY: 30,
-      head: [['ID', 'Nama', 'Department', 'Tanggal', 'Jam', 'Peserta', 'Agenda', 'Ruangan', 'Head GA', 'Head OS']],
+      head: [['ID', 'Nama', 'Department', 'Tanggal', 'Jam', 'Peserta', 'Agenda', 'Ruangan', 'Head Dept', 'GA']],
       body: filteredMeetings.map(m => [
         m.id, m.nama, m.department, m.tanggal, 
         `${m.jamMulai}-${m.jamBerakhir}`, m.jumlahPeserta, 
-        m.agenda.substring(0, 30), m.namaRuangan, m.headGA, m.headOS
+        m.agenda.substring(0, 30), m.namaRuangan, m.headDept, m.ga
       ]),
       styles: { fontSize: 7 },
       headStyles: { fillColor: [79, 70, 229] }
@@ -402,7 +402,7 @@ const DataMonitoring = () => {
             <div>
               <div className="text-yellow-700 text-sm font-medium">Pending</div>
               <div className="text-3xl font-bold text-yellow-900 mt-2">
-                {meetings.filter(m => m.headGA === 'pending' || m.headOS === 'pending').length}
+                {meetings.filter(m => m.headDept === 'pending' || m.ga === 'pending').length}
               </div>
             </div>
             <div className="bg-yellow-200 rounded-full p-3">
@@ -423,7 +423,7 @@ const DataMonitoring = () => {
             <div>
               <div className="text-green-700 text-sm font-medium">Approved</div>
               <div className="text-3xl font-bold text-green-900 mt-2">
-                {meetings.filter(m => m.headGA === 'approved' && m.headOS === 'approved').length}
+                {meetings.filter(m => m.headDept === 'approved' && m.ga === 'approved').length}
               </div>
             </div>
             <div className="bg-green-200 rounded-full p-3">
@@ -444,7 +444,7 @@ const DataMonitoring = () => {
             <div>
               <div className="text-red-700 text-sm font-medium">Rejected</div>
               <div className="text-3xl font-bold text-red-900 mt-2">
-                {meetings.filter(m => m.headGA === 'rejected' || m.headOS === 'rejected').length}
+                {meetings.filter(m => m.headDept === 'rejected' || m.ga === 'rejected').length}
               </div>
             </div>
             <div className="bg-red-200 rounded-full p-3">
@@ -636,8 +636,8 @@ const DataMonitoring = () => {
                 <th className="px-2 lg:px-4 py-2 lg:py-3 text-left text-xs lg:text-sm font-semibold">Agenda</th>
                 <th className="px-2 lg:px-4 py-2 lg:py-3 text-left text-xs lg:text-sm font-semibold">Ruangan</th>
                 <th className="px-2 lg:px-4 py-2 lg:py-3 text-left text-xs lg:text-sm font-semibold">Fasilitas</th>
-                <th className="px-2 lg:px-4 py-2 lg:py-3 text-left text-xs lg:text-sm font-semibold">Head GA</th>
-                <th className="px-2 lg:px-4 py-2 lg:py-3 text-left text-xs lg:text-sm font-semibold">Head OS</th>
+                <th className="px-2 lg:px-4 py-2 lg:py-3 text-left text-xs lg:text-sm font-semibold">Head Dept</th>
+                <th className="px-2 lg:px-4 py-2 lg:py-3 text-left text-xs lg:text-sm font-semibold">GA</th>
                 <th className="px-2 lg:px-4 py-2 lg:py-3 text-left text-xs lg:text-sm font-semibold">Edit</th>
                 <th className="px-2 lg:px-4 py-2 lg:py-3 text-left text-xs lg:text-sm font-semibold">History</th>
               </tr>
@@ -683,7 +683,35 @@ const DataMonitoring = () => {
                       <div className="truncate" title={meeting.fasilitas}>{meeting.fasilitas}</div>
                     </td>
                     <td className="px-2 lg:px-4 py-2 lg:py-3 text-xs lg:text-sm">
-                      {meeting.headGA === 'pending' ? (
+                      {meeting.headDept === 'pending' ? (
+                        <div className="flex gap-1">
+                          <button
+                            onClick={() => handleApproveHeadDept(meeting.id)}
+                            className="px-1 lg:px-2 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-xs font-medium transition-colors"
+                          >
+                            Approve
+                          </button>
+                          <button
+                            onClick={() => handleRejectHeadDept(meeting.id)}
+                            className="px-1 lg:px-2 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-xs font-medium transition-colors"
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      ) : (
+                        <div>
+                          {meeting.headDept === 'approved' && (
+                            <span className="px-2 lg:px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">Approved</span>
+                          )}
+                          {meeting.headDept === 'rejected' && (
+                            <span className="px-2 lg:px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">Rejected</span>
+                          )}
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-2 lg:px-4 py-2 lg:py-3 text-xs lg:text-sm">
+                      {/* GA - Can approve/reject independently */}
+                      {meeting.ga === 'pending' ? (
                         <div className="flex gap-1">
                           <button
                             onClick={() => handleApproveGA(meeting.id)}
@@ -700,49 +728,10 @@ const DataMonitoring = () => {
                         </div>
                       ) : (
                         <div>
-                          {meeting.headGA === 'approved' && (
+                          {meeting.ga === 'approved' && (
                             <span className="px-2 lg:px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">Approved</span>
                           )}
-                          {meeting.headGA === 'rejected' && (
-                            <span className="px-2 lg:px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">Rejected</span>
-                          )}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-2 lg:px-4 py-2 lg:py-3 text-xs lg:text-sm">
-                      {/* Head OS - Approval Bertingkat */}
-                      {/* Jika Head GA masih pending, tampilkan abu-abu (menunggu GA) */}
-                      {meeting.headGA === 'pending' ? (
-                        <div className="px-2 lg:px-3 py-1 rounded-full text-xs font-semibold bg-gray-200 text-gray-500 text-center">
-                          Menunggu GA
-                        </div>
-                      ) : meeting.headGA === 'rejected' ? (
-                        /* Jika Head GA reject, Head OS tidak bisa approve/reject */
-                        <div className="px-2 lg:px-3 py-1 rounded-full text-xs font-semibold bg-gray-300 text-gray-600 text-center">
-                          GA Ditolak
-                        </div>
-                      ) : meeting.headOS === 'pending' ? (
-                        /* Head GA approved, Head OS bisa approve/reject */
-                        <div className="flex gap-1">
-                          <button
-                            onClick={() => handleApproveOS(meeting.id)}
-                            className="px-1 lg:px-2 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-xs font-medium transition-colors"
-                          >
-                            Approve
-                          </button>
-                          <button
-                            onClick={() => handleRejectOS(meeting.id)}
-                            className="px-1 lg:px-2 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-xs font-medium transition-colors"
-                          >
-                            Reject
-                          </button>
-                        </div>
-                      ) : (
-                        <div>
-                          {meeting.headOS === 'approved' && (
-                            <span className="px-2 lg:px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">Approved</span>
-                          )}
-                          {meeting.headOS === 'rejected' && (
+                          {meeting.ga === 'rejected' && (
                             <span className="px-2 lg:px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">Rejected</span>
                           )}
                         </div>
@@ -961,7 +950,7 @@ const DataMonitoring = () => {
                   {confirmAction.type.includes('approve') ? 'Approve Permohonan' : 'Reject Permohonan'}
                 </h2>
                 <p className="text-sm text-gray-600">
-                  {confirmAction.type.includes('GA') ? 'Head GA' : 'Head OS'}
+                  {confirmAction.type.includes('HeadDept') ? 'Head Department' : 'General Affair (GA)'}
                 </p>
               </div>
             </div>

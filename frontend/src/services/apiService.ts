@@ -32,7 +32,7 @@ export interface RegisterRequest {
   whatsapp: string;
   birthDate: string;
   department?: string;
-  role?: 'admin' | 'head_ga' | 'head_os' | 'user';
+  role?: 'admin' | 'head' | 'ga' | 'user';
 }
 
 export interface AuthResponse {
@@ -97,8 +97,8 @@ export interface MeetingRequest {
   agenda: string;
   namaRuangan: string;
   fasilitas: string;
-  headGA: 'pending' | 'approved' | 'rejected';
-  headOS: 'pending' | 'approved' | 'rejected';
+  headDept: 'pending' | 'approved' | 'rejected';
+  ga: 'pending' | 'approved' | 'rejected';
   history: MeetingRequestHistory[];
   createdAt: string;
 }
@@ -170,7 +170,7 @@ export interface UpdateMeetingRequestInput {
 }
 
 export interface UpdateApprovalInput {
-  type: 'approveGA' | 'rejectGA' | 'approveOS' | 'rejectOS';
+  type: 'approveHeadDept' | 'rejectHeadDept' | 'approveGA' | 'rejectGA';
   notes?: string;
 }
 
@@ -181,7 +181,7 @@ export interface UpdateUserInput {
   whatsapp?: string;
   birthDate?: string;
   department?: string;
-  role?: 'admin' | 'head_ga' | 'head_os' | 'user';
+  role?: 'admin' | 'head' | 'ga' | 'user';
 }
 
 /**
