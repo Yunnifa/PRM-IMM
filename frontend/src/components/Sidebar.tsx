@@ -13,9 +13,14 @@ const Sidebar = () => {
   return (
     <div className="w-64 bg-indigo-900 text-white h-screen flex flex-col">
       {/* Header */}
-      <div className="p-6 border-b border-indigo-700">
-        <h2 className="text-xl font-bold">Admin Panel</h2>
-        <p className="text-sm text-indigo-300 mt-1">PRM-IMM</p>
+      <div className="p-4 border-b border-indigo-700">
+        <img 
+          src="/IMM.svg" 
+          alt="PT IMM Logo" 
+          className="h-12 w-auto mb-2 mx-auto"
+        />
+        <h2 className="text-lg font-bold text-center">Admin Page</h2>
+        <p className="text-xs text-indigo-300 mt-1 text-center">Sistem Peminjaman Ruangan Meeting</p>
       </div>
 
       {/* Navigation */}

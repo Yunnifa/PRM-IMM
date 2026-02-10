@@ -54,7 +54,7 @@ const Login = () => {
         {/* Header with Logo */}
         <div className="text-center">
           <img 
-            src="/2_Ptimm.png" 
+            src="/IMM.svg" 
             alt="PT IMM Logo" 
             className="mx-auto h-24 w-auto mb-4"
           />
@@ -128,29 +128,6 @@ const Login = () => {
               {loading ? 'Loading...' : 'Login'}
             </button>
           </form>
-
-          {/* Divider */}
-          <div className="relative my-6">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-300"></div>
-            </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-white text-gray-500">atau</span>
-            </div>
-          </div>
-
-          {/* Check Calendar Button */}
-          <button
-            type="button"
-            onClick={() => {
-              // Set flag untuk menampilkan tombol back
-              sessionStorage.setItem('fromLogin', 'true');
-              navigate('/calendar');
-            }}
-            className="w-full bg-white hover:bg-gray-50 text-blue-600 font-semibold py-3 px-4 rounded-lg border-2 border-blue-600 transition duration-200 shadow-md hover:shadow-lg"
-          >
-            Cek Kalender
-          </button>
         </div>
       </div>
     </div>
