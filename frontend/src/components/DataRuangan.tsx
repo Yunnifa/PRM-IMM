@@ -237,9 +237,9 @@ const DataRuangan = () => {
     <div className="p-6">
       {/* Loading State */}
       {loading && (
-        <div className="flex justify-center items-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-          <span className="ml-3 text-gray-600">Loading rooms...</span>
+        <div className="flex flex-col justify-center items-center py-12">
+          <img src="/Loader-1.gif" alt="Loading" className="h-16 w-16" />
+          <span className="mt-2 text-gray-600">Loading rooms...</span>
         </div>
       )}
 

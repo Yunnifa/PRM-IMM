@@ -501,7 +501,7 @@ const DataUser = () => {
     return (
       <div className="p-6 flex justify-center items-center min-h-screen">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <img src="/Loader-1.gif" alt="Loading" className="h-16 w-16 mx-auto" />
           <p className="mt-4 text-gray-600">Loading...</p>
         </div>
       </div>
