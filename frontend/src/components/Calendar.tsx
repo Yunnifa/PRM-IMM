@@ -405,7 +405,7 @@ const Calendar = () => {
       {loadingMaster && (
         <div className="absolute inset-0 bg-white/75 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="flex flex-col items-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+            <img src="/Loader-1.gif" alt="Loading" className="h-16 w-16" />
             <span className="mt-2 text-gray-600">Memuat data...</span>
           </div>
         </div>
