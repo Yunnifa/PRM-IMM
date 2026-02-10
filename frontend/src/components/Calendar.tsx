@@ -101,32 +101,20 @@ const Calendar = () => {
 
   const fetchHolidays = async (year: number) => {
     try {
-      // Using api-harilibur.vercel.app for Indonesian public holidays
-      const response = await fetch(`https://api-harilibur.vercel.app/api?year=${year}`);
+      // Using Nager.Date API for Indonesian public holidays
+      const response = await fetch(`https://date.nager.at/api/v3/PublicHolidays/${year}/ID`);
       if (response.ok) {
         const data = await response.json();
         // Map the API response to our Holiday format
-        const holidays: Holiday[] = data
-          .filter((h: any) => h.is_national_holiday)
-          .map((h: any) => ({
-            date: h.holiday_date,
-            localName: h.holiday_name,
-            name: h.holiday_name
-          }));
+        const holidays: Holiday[] = data.map((h: any) => ({
+          date: h.date,
+          localName: h.localName,
+          name: h.name
+        }));
         setHolidays(holidays);
       }
     } catch (error) {
       console.error('Error fetching holidays:', error);
-      // Fallback: try Nager.Date API
-      try {
-        const fallbackResponse = await fetch(`https://date.nager.at/api/v3/PublicHolidays/${year}/ID`);
-        if (fallbackResponse.ok) {
-          const data = await fallbackResponse.json();
-          setHolidays(data);
-        }
-      } catch (fallbackError) {
-        console.error('Fallback API also failed:', fallbackError);
-      }
     }
   };
 
