@@ -131,7 +131,11 @@ const Calendar = () => {
   };
 
   const getHolidayForDate = (date: Date): Holiday | undefined => {
-    const dateStr = date.toISOString().split('T')[0];
+    // Use local date to avoid timezone issues
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const dateStr = `${year}-${month}-${day}`;
     return holidays.find(h => h.date === dateStr);
   };
 
@@ -420,7 +424,7 @@ const Calendar = () => {
       )}
 
       {/* Header */}
-      <div className="bg-white/80 backdrop-blur-md shadow-lg rounded-xl p-2 sm:p-3 pb-0">
+      <div className="bg-white/95 backdrop-blur-md shadow-lg rounded-xl p-2 sm:p-3 pb-0">
         {/* Logo */}
         <div className="flex justify-center mb-2">
           <img 
@@ -457,7 +461,7 @@ const Calendar = () => {
 
             {/* Month Year Picker Modal */}
             {showMonthYearPicker && (
-              <div className="absolute top-full mt-4 left-1/2 transform -translate-x-1/2 bg-white/80 backdrop-blur-md rounded-2xl shadow-2xl p-6 z-50 border-2 border-indigo-200 w-96">
+              <div className="absolute top-full mt-4 left-1/2 transform -translate-x-1/2 bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl p-6 z-50 border-2 border-indigo-200 w-96">
                 {/* Year Selector */}
                 <div className="mb-6">
                   <div className="flex items-center justify-center gap-3">
@@ -523,9 +527,9 @@ const Calendar = () => {
       </div>
 
       {/* Calendar Grid */}
-      <div className="bg-white/80 backdrop-blur-md shadow-lg px-2 sm:px-3 pb-2 sm:pb-3 flex-1 flex flex-col overflow-y-auto rounded-xl">
+      <div className="bg-white/95 backdrop-blur-md shadow-lg px-2 sm:px-3 pb-2 sm:pb-3 flex-1 flex flex-col overflow-y-auto rounded-xl">
         {/* Day Names */}
-        <div className="sticky top-0 bg-white/80 backdrop-blur-md z-10 grid grid-cols-7 gap-1 sm:gap-2 mb-3 sm:mb-4 rounded-t-xl">
+        <div className="sticky top-0 bg-white/95 backdrop-blur-md z-10 grid grid-cols-7 gap-1 sm:gap-2 mb-3 sm:mb-4 rounded-t-xl">
           {dayNames.map((day, idx) => (
             <div
               key={day}
@@ -554,9 +558,9 @@ const Calendar = () => {
                   transition-all cursor-pointer overflow-hidden
                   ${day.isCurrentMonth 
                     ? isHoliday 
-                      ? 'bg-red-50/80 hover:bg-red-100/80 border border-red-200 hover:border-red-300'
-                      : 'bg-white/70 hover:bg-indigo-50/80 border border-gray-200 hover:border-indigo-300' 
-                    : 'bg-gray-50/70 text-gray-400 border border-gray-100'
+                      ? 'bg-red-50/95 hover:bg-red-100/95 border border-red-200 hover:border-red-300'
+                      : 'bg-white/90 hover:bg-indigo-50/95 border border-gray-200 hover:border-indigo-300' 
+                    : 'bg-gray-50/90 text-gray-400 border border-gray-100'
                   }
                   ${day.isToday 
                     ? 'ring-2 ring-indigo-500 bg-indigo-100 border-indigo-500' 
@@ -576,28 +580,35 @@ const Calendar = () => {
                   {day.date}
                 </span>
 
-                {/* Holiday Indicator */}
+                {/* Holiday Indicator - Blue color for holiday info */}
                 {isHoliday && day.isCurrentMonth && (
-                  <div className="w-full text-[7px] sm:text-[8px] px-0.5 py-0.5 bg-red-500 text-white rounded truncate text-center mb-0.5">
+                  <div className="w-full text-[7px] sm:text-[8px] px-0.5 py-0.5 bg-blue-500 text-white rounded truncate text-center mb-0.5">
                     {holiday.localName}
                   </div>
                 )}
 
-                {/* Meeting Indicators - Blue color for events */}
+                {/* Meeting Indicators - Color based on status */}
                 {dayMeetings.length > 0 && (
                   <div className="w-full flex flex-col gap-0.5 overflow-hidden">
                     {dayMeetings.slice(0, isHoliday ? 1 : 2).map((meeting) => {
+                      const isApproved = meeting.headDept === 'approved' && meeting.ga === 'approved';
+                      const isRejected = meeting.headDept === 'rejected' || meeting.ga === 'rejected';
+                      const meetingColor = isApproved 
+                        ? 'bg-green-500 border-green-700' 
+                        : isRejected 
+                          ? 'bg-red-500 border-red-700' 
+                          : 'bg-yellow-500 border-yellow-700';
                       return (
                         <div 
                           key={meeting.id} 
-                          className="text-[8px] sm:text-[9px] px-1 py-1 sm:py-1.5 rounded truncate bg-blue-500 text-white border-l-4 border-blue-700"
+                          className={`text-[8px] sm:text-[9px] px-1 py-1 sm:py-1.5 rounded truncate text-white border-l-4 ${meetingColor}`}
                         >
                           {meeting.jamMulai} - {meeting.namaRuangan}
                         </div>
                       );
                     })}
                     {dayMeetings.length > (isHoliday ? 1 : 2) && (
-                      <div className="text-[8px] sm:text-[9px] text-blue-600 font-semibold text-center py-0.5">
+                      <div className="text-[8px] sm:text-[9px] text-gray-600 font-semibold text-center py-0.5">
                         +{dayMeetings.length - (isHoliday ? 1 : 2)} lagi
                       </div>
                     )}
@@ -612,7 +623,7 @@ const Calendar = () => {
       {/* Date Detail Modal */}
       {showDateDetail && selectedDate && (
         <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setShowDateDetail(false)}>
-          <div className="bg-white/80 backdrop-blur-md rounded-xl shadow-2xl p-4 max-w-xl w-full max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white/95 backdrop-blur-md rounded-xl shadow-2xl p-4 max-w-xl w-full max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-3">
               <button
                 onClick={() => setShowDateDetail(false)}
@@ -721,7 +732,7 @@ const Calendar = () => {
       {/* Add Meeting Modal */}
       {showAddMeeting && (
         <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setShowAddMeeting(false)}>
-          <div className="bg-white/80 backdrop-blur-md rounded-xl shadow-2xl p-4 max-w-xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white/95 backdrop-blur-md rounded-xl shadow-2xl p-4 max-w-xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-3">
               <h2 className="text-xl font-bold text-indigo-900">Request Peminjaman Ruangan</h2>
               <button
