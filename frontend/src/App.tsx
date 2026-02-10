@@ -13,7 +13,8 @@ function App() {
     <Router>
       <Routes>
         {/* Public Routes */}
-        <Route path="/" element={<Login />} />
+        <Route path="/" element={<Calendar />} />
+        <Route path="/login" element={<Login />} />
         <Route path="/calendar" element={<Calendar />} />
 
         {/* Admin Routes - Protected */}

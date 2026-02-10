@@ -85,9 +85,8 @@ const Calendar = () => {
   const [facilities, setFacilities] = useState<Facility[]>([]);
   const [loadingMaster, setLoadingMaster] = useState(true);
 
-  // Check if user is admin or came from login
+  // Check if user is admin
   const isAdmin = localStorage.getItem('isAdminLoggedIn') === 'true';
-  const fromLogin = sessionStorage.getItem('fromLogin') === 'true';
 
   // Fetch master data on mount
   useEffect(() => {
@@ -161,11 +160,6 @@ const Calendar = () => {
     } catch (error) {
       console.error('Error fetching meetings:', error);
     }
-  };
-
-  const handleBack = () => {
-    sessionStorage.removeItem('fromLogin');
-    navigate('/');
   };
 
   const monthNames = [
@@ -391,10 +385,18 @@ const Calendar = () => {
   };
 
   return (
-    <div className="relative w-full h-full flex flex-col p-2 sm:p-3 bg-white">
+    <div 
+      className="relative w-full min-h-screen flex flex-col p-2 sm:p-3"
+      style={{
+        backgroundImage: 'url(/BG_2.png)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundAttachment: 'fixed'
+      }}
+    >
       {/* Loading Overlay */}
       {loadingMaster && (
-        <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-50">
+        <div className="absolute inset-0 bg-white/75 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="flex flex-col items-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
             <span className="mt-2 text-gray-600">Memuat data...</span>
@@ -402,20 +404,31 @@ const Calendar = () => {
         </div>
       )}
 
-      {/* Back Button - hanya muncul jika non-admin dari halaman login */}
-      {!isAdmin && fromLogin && (
-        <div className="absolute top-4 left-4 z-50">
+      {/* Admin Login Button - Top Right */}
+      {!isAdmin && (
+        <div className="absolute top-4 right-4 z-50">
           <button
-            onClick={handleBack}
-            className="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-200"
+            onClick={() => navigate('/login')}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-200 flex items-center gap-2"
           >
-            ← Kembali
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+            </svg>
+            Admin Login
           </button>
         </div>
       )}
 
       {/* Header */}
-      <div className="bg-white shadow-lg p-2 sm:p-3 pb-0">
+      <div className="bg-white/80 backdrop-blur-md shadow-lg rounded-xl p-2 sm:p-3 pb-0">
+        {/* Logo */}
+        <div className="flex justify-center mb-2">
+          <img 
+            src="/IMM.svg" 
+            alt="PT IMM Logo" 
+            className="h-16 sm:h-20 w-auto"
+          />
+        </div>
         <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-center text-indigo-900">
           Monitoring Penggunaan Ruangan Meeting PT Indominco Mandiri
         </h1>
@@ -444,7 +457,7 @@ const Calendar = () => {
 
             {/* Month Year Picker Modal */}
             {showMonthYearPicker && (
-              <div className="absolute top-full mt-4 left-1/2 transform -translate-x-1/2 bg-white rounded-2xl shadow-2xl p-6 z-50 border-2 border-indigo-200 w-96">
+              <div className="absolute top-full mt-4 left-1/2 transform -translate-x-1/2 bg-white/80 backdrop-blur-md rounded-2xl shadow-2xl p-6 z-50 border-2 border-indigo-200 w-96">
                 {/* Year Selector */}
                 <div className="mb-6">
                   <div className="flex items-center justify-center gap-3">
@@ -510,9 +523,9 @@ const Calendar = () => {
       </div>
 
       {/* Calendar Grid */}
-      <div className="bg-white shadow-lg px-2 sm:px-3 pb-2 sm:pb-3 flex-1 flex flex-col overflow-y-auto">
+      <div className="bg-white/80 backdrop-blur-md shadow-lg px-2 sm:px-3 pb-2 sm:pb-3 flex-1 flex flex-col overflow-y-auto rounded-xl">
         {/* Day Names */}
-        <div className="sticky top-0 bg-white z-10 grid grid-cols-7 gap-1 sm:gap-2 mb-3 sm:mb-4">
+        <div className="sticky top-0 bg-white/80 backdrop-blur-md z-10 grid grid-cols-7 gap-1 sm:gap-2 mb-3 sm:mb-4 rounded-t-xl">
           {dayNames.map((day, idx) => (
             <div
               key={day}
@@ -541,9 +554,9 @@ const Calendar = () => {
                   transition-all cursor-pointer overflow-hidden
                   ${day.isCurrentMonth 
                     ? isHoliday 
-                      ? 'bg-red-50 hover:bg-red-100 border border-red-200 hover:border-red-300'
-                      : 'bg-white hover:bg-indigo-50 border border-gray-200 hover:border-indigo-300' 
-                    : 'bg-gray-50 text-gray-400 border border-gray-100'
+                      ? 'bg-red-50/80 hover:bg-red-100/80 border border-red-200 hover:border-red-300'
+                      : 'bg-white/70 hover:bg-indigo-50/80 border border-gray-200 hover:border-indigo-300' 
+                    : 'bg-gray-50/70 text-gray-400 border border-gray-100'
                   }
                   ${day.isToday 
                     ? 'ring-2 ring-indigo-500 bg-indigo-100 border-indigo-500' 
@@ -599,7 +612,7 @@ const Calendar = () => {
       {/* Date Detail Modal */}
       {showDateDetail && selectedDate && (
         <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setShowDateDetail(false)}>
-          <div className="bg-white rounded-xl shadow-2xl p-4 max-w-xl w-full max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white/80 backdrop-blur-md rounded-xl shadow-2xl p-4 max-w-xl w-full max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-3">
               <button
                 onClick={() => setShowDateDetail(false)}
@@ -708,7 +721,7 @@ const Calendar = () => {
       {/* Add Meeting Modal */}
       {showAddMeeting && (
         <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setShowAddMeeting(false)}>
-          <div className="bg-white rounded-xl shadow-2xl p-4 max-w-xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white/80 backdrop-blur-md rounded-xl shadow-2xl p-4 max-w-xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-3">
               <h2 className="text-xl font-bold text-indigo-900">Request Peminjaman Ruangan</h2>
               <button
