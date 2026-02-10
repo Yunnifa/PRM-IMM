@@ -30,6 +30,7 @@ const Login = () => {
         // Save token and user data
         localStorage.setItem('token', response.data.token);
         localStorage.setItem('user', JSON.stringify(response.data.user));
+        localStorage.setItem('userRole', response.data.user.role);
         localStorage.setItem('isAdminLoggedIn', 'true');
         
         navigate('/admin/monitoring');
@@ -128,6 +129,25 @@ const Login = () => {
               {loading ? 'Loading...' : 'Login'}
             </button>
           </form>
+
+          {/* Divider */}
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-300"></div>
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-2 bg-white text-gray-500">atau</span>
+            </div>
+          </div>
+
+          {/* Check Calendar Button */}
+          <button
+            type="button"
+            onClick={() => navigate('/')}
+            className="w-full bg-white hover:bg-gray-50 text-blue-600 font-semibold py-3 px-4 rounded-lg border-2 border-blue-600 transition duration-200 shadow-md hover:shadow-lg"
+          >
+            Cek Kalender
+          </button>
         </div>
       </div>
     </div>

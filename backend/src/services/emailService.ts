@@ -233,7 +233,7 @@ export async function sendMeetingRequestNotification(
     const mailOptions = {
       from: `"PRM-IMM System" <${process.env.SMTP_USER || 'Generalaffairsimm@gmail.com'}>`,
       to: approver.email,
-      subject: `[PRM-IMM] Permintaan Ruang Meeting Baru - ${meetingData.requestId}`,
+      subject: `PRM-${meetingData.nama}-${meetingData.agenda}`,
       html: htmlContent,
     };
 
@@ -380,7 +380,7 @@ export async function sendApprovalNotification(
   const mailOptions = {
     from: `"PRM-IMM System" <${process.env.SMTP_USER || 'Generalaffairsimm@gmail.com'}>`,
     to: requesterEmail,
-    subject: `[PRM-IMM] Permintaan ${meetingData.requestId} ${actionLabel} oleh ${roleLabel}`,
+    subject: `PRM-${meetingData.nama}-${meetingData.agenda} (${actionLabel})`,
     html: htmlContent,
   };
 

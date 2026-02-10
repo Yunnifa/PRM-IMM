@@ -84,9 +84,12 @@ const Calendar = () => {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [facilities, setFacilities] = useState<Facility[]>([]);
   const [loadingMaster, setLoadingMaster] = useState(true);
+  const [overrideMode, setOverrideMode] = useState(false);
 
-  // Check if user is admin
+  // Check if user is admin or GA (for override)
   const isAdmin = localStorage.getItem('isAdminLoggedIn') === 'true';
+  const userRole = localStorage.getItem('userRole');
+  const isGA = userRole === 'ga' || userRole === 'admin';
 
   // Fetch master data on mount
   useEffect(() => {
@@ -266,16 +269,17 @@ const Calendar = () => {
     return !roomsWithoutPesertaRequired.some(name => normalizedName.includes(name));
   };
 
-  // Check apakah ruangan sudah dibooking pada jam tertentu
+  // Check apakah ruangan sudah dibooking pada jam tertentu (pending + approved)
   const isRoomBooked = (roomName: string, jamMulai: string, jamBerakhir: string): boolean => {
     if (!selectedDate || !jamMulai || !jamBerakhir) return false;
+    if (overrideMode) return false; // GA override mode bypasses check
     
     const dateStr = formatDate(selectedDate);
+    // Include both pending and approved bookings (not rejected)
     const bookedMeetings = meetings.filter(m => 
       m.tanggal === dateStr && 
       m.namaRuangan === roomName &&
-      m.headDept === 'approved' && 
-      m.ga === 'approved'
+      !(m.headDept === 'rejected' || m.ga === 'rejected')
     );
     
     // Convert time strings to minutes for comparison
@@ -296,22 +300,49 @@ const Calendar = () => {
     });
   };
 
-  // Get booking info for a room
+  // Get booking info for a room (pending + approved)
   const getRoomBookingInfo = (roomName: string): { isBooked: boolean; bookedTimes: string[] } => {
     if (!selectedDate) return { isBooked: false, bookedTimes: [] };
+    if (overrideMode) return { isBooked: false, bookedTimes: [] }; // GA override
     
     const dateStr = formatDate(selectedDate);
+    // Include both pending and approved bookings (not rejected)
     const bookedMeetings = meetings.filter(m => 
       m.tanggal === dateStr && 
       m.namaRuangan === roomName &&
-      m.headDept === 'approved' && 
-      m.ga === 'approved'
+      !(m.headDept === 'rejected' || m.ga === 'rejected')
     );
     
     return {
       isBooked: bookedMeetings.length > 0,
       bookedTimes: bookedMeetings.map(m => `${m.jamMulai}-${m.jamBerakhir}`)
     };
+  };
+
+  // Get unavailable hours for a room on selected date
+  const getUnavailableHours = (roomName: string): Set<string> => {
+    if (!selectedDate || !roomName || overrideMode) return new Set();
+    
+    const dateStr = formatDate(selectedDate);
+    const bookedMeetings = meetings.filter(m => 
+      m.tanggal === dateStr && 
+      m.namaRuangan === roomName &&
+      !(m.headDept === 'rejected' || m.ga === 'rejected')
+    );
+    
+    const unavailableHours = new Set<string>();
+    bookedMeetings.forEach(m => {
+      const startHour = parseInt(m.jamMulai.split(':')[0]);
+      const endHour = parseInt(m.jamBerakhir.split(':')[0]);
+      const endMinute = parseInt(m.jamBerakhir.split(':')[1]);
+      
+      // Mark hours from start to end (inclusive of end if not :00)
+      for (let h = startHour; h <= (endMinute > 0 ? endHour : endHour - 1); h++) {
+        unavailableHours.add(h.toString().padStart(2, '0'));
+      }
+    });
+    
+    return unavailableHours;
   };
 
 
@@ -798,7 +829,21 @@ const Calendar = () => {
 
               {/* Section 2: Detail Ruangan & Waktu */}
               <div className="bg-gray-50 p-3 rounded-lg space-y-2">
-                <h3 className="text-sm font-bold text-indigo-900">Detail Ruangan & Waktu</h3>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-bold text-indigo-900">Detail Ruangan & Waktu</h3>
+                  {/* GA Override Button */}
+                  {isGA && (
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={overrideMode}
+                        onChange={(e) => setOverrideMode(e.target.checked)}
+                        className="w-4 h-4 text-orange-600 border-gray-300 rounded focus:ring-orange-500"
+                      />
+                      <span className="text-xs font-semibold text-orange-600">Override Mode (GA)</span>
+                    </label>
+                  )}
+                </div>
                 
                 <div>
                   <label className="block text-xs font-semibold text-gray-700 mb-1">Ruangan Meeting *</label>
@@ -807,8 +852,8 @@ const Calendar = () => {
                     value={newMeeting.ruangan}
                     onChange={(e) => {
                       const selectedRoom = e.target.value;
-                      // Check if room is booked
-                      if (selectedRoom && isRoomBooked(selectedRoom, newMeeting.jamMulai, newMeeting.jamBerakhir)) {
+                      // Check if room is booked (skip if override mode)
+                      if (!overrideMode && selectedRoom && isRoomBooked(selectedRoom, newMeeting.jamMulai, newMeeting.jamBerakhir)) {
                         alert('Ruangan ini sudah dibooking pada jam yang dipilih. Silakan pilih ruangan lain atau ubah jam meeting.');
                         return;
                       }
@@ -820,7 +865,7 @@ const Calendar = () => {
                     {rooms.map(room => {
                       const bookingInfo = getRoomBookingInfo(room.name);
                       const isBooked = bookingInfo.isBooked;
-                      const hybridText = room.isHybrid === 1 ? '-Hybrid' : '';
+                      const hybridText = room.isHybrid === 1 ? ' - Hybrid' : '';
                       return (
                         <option 
                           key={room.id} 
@@ -878,9 +923,23 @@ const Calendar = () => {
                         className="flex-1 px-1 py-1 focus:outline-none text-center text-sm font-semibold"
                       >
                         <option value="">HH</option>
-                        {hours.map(hour => (
-                          <option key={hour} value={hour}>{hour}</option>
-                        ))}
+                        {hours.map(hour => {
+                          const unavailable = getUnavailableHours(newMeeting.ruangan);
+                          const isUnavailable = unavailable.has(hour) && !overrideMode;
+                          return (
+                            <option 
+                              key={hour} 
+                              value={hour}
+                              disabled={isUnavailable}
+                              style={{ 
+                                color: isUnavailable ? '#9ca3af' : 'inherit',
+                                backgroundColor: isUnavailable ? '#f3f4f6' : 'inherit'
+                              }}
+                            >
+                              {hour}{isUnavailable ? ' (terisi)' : ''}
+                            </option>
+                          );
+                        })}
                       </select>
                       <span className="text-sm font-bold text-gray-600">:</span>
                       <select
@@ -913,9 +972,23 @@ const Calendar = () => {
                         className="flex-1 px-1 py-1 focus:outline-none text-center text-sm font-semibold"
                       >
                         <option value="">HH</option>
-                        {hours.map(hour => (
-                          <option key={hour} value={hour}>{hour}</option>
-                        ))}
+                        {hours.map(hour => {
+                          const unavailable = getUnavailableHours(newMeeting.ruangan);
+                          const isUnavailable = unavailable.has(hour) && !overrideMode;
+                          return (
+                            <option 
+                              key={hour} 
+                              value={hour}
+                              disabled={isUnavailable}
+                              style={{ 
+                                color: isUnavailable ? '#9ca3af' : 'inherit',
+                                backgroundColor: isUnavailable ? '#f3f4f6' : 'inherit'
+                              }}
+                            >
+                              {hour}{isUnavailable ? ' (terisi)' : ''}
+                            </option>
+                          );
+                        })}
                       </select>
                       <span className="text-sm font-bold text-gray-600">:</span>
                       <select

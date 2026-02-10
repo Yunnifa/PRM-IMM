@@ -27,6 +27,7 @@ api.interceptors.response.use(
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       localStorage.removeItem('isAdminLoggedIn');
+      localStorage.removeItem('userRole');
       window.location.href = '/';
     }
     return Promise.reject(error);
