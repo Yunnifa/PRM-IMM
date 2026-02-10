@@ -50,6 +50,12 @@ interface Meeting {
   ga: 'pending' | 'approved' | 'rejected';
 }
 
+interface Holiday {
+  date: string; // format: YYYY-MM-DD
+  localName: string;
+  name: string;
+}
+
 const Calendar = () => {
   const navigate = useNavigate();
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -57,6 +63,7 @@ const Calendar = () => {
   const [showMonthYearPicker, setShowMonthYearPicker] = useState(false);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [meetings, setMeetings] = useState<Meeting[]>([]);
+  const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [showDateDetail, setShowDateDetail] = useState(false);
   const [showAddMeeting, setShowAddMeeting] = useState(false);
@@ -87,6 +94,47 @@ const Calendar = () => {
     fetchMasterData();
     fetchMeetings();
   }, []);
+
+  // Fetch holidays when year changes
+  useEffect(() => {
+    fetchHolidays(currentDate.getFullYear());
+  }, [currentDate]);
+
+  const fetchHolidays = async (year: number) => {
+    try {
+      // Using api-harilibur.vercel.app for Indonesian public holidays
+      const response = await fetch(`https://api-harilibur.vercel.app/api?year=${year}`);
+      if (response.ok) {
+        const data = await response.json();
+        // Map the API response to our Holiday format
+        const holidays: Holiday[] = data
+          .filter((h: any) => h.is_national_holiday)
+          .map((h: any) => ({
+            date: h.holiday_date,
+            localName: h.holiday_name,
+            name: h.holiday_name
+          }));
+        setHolidays(holidays);
+      }
+    } catch (error) {
+      console.error('Error fetching holidays:', error);
+      // Fallback: try Nager.Date API
+      try {
+        const fallbackResponse = await fetch(`https://date.nager.at/api/v3/PublicHolidays/${year}/ID`);
+        if (fallbackResponse.ok) {
+          const data = await fallbackResponse.json();
+          setHolidays(data);
+        }
+      } catch (fallbackError) {
+        console.error('Fallback API also failed:', fallbackError);
+      }
+    }
+  };
+
+  const getHolidayForDate = (date: Date): Holiday | undefined => {
+    const dateStr = date.toISOString().split('T')[0];
+    return holidays.find(h => h.date === dateStr);
+  };
 
   const fetchMasterData = async () => {
     try {
@@ -481,6 +529,8 @@ const Calendar = () => {
         <div className="grid grid-cols-7 gap-1 sm:gap-2">
           {calendarDays.map((day, index) => {
             const dayMeetings = getMeetingsForDate(day.fullDate);
+            const holiday = getHolidayForDate(day.fullDate);
+            const isHoliday = !!holiday;
             return (
               <div
                 key={index}
@@ -490,7 +540,9 @@ const Calendar = () => {
                   min-h-[60px] sm:min-h-[80px] md:min-h-[100px] lg:min-h-[120px]
                   transition-all cursor-pointer overflow-hidden
                   ${day.isCurrentMonth 
-                    ? 'bg-white hover:bg-indigo-50 border border-gray-200 hover:border-indigo-300' 
+                    ? isHoliday 
+                      ? 'bg-red-50 hover:bg-red-100 border border-red-200 hover:border-red-300'
+                      : 'bg-white hover:bg-indigo-50 border border-gray-200 hover:border-indigo-300' 
                     : 'bg-gray-50 text-gray-400 border border-gray-100'
                   }
                   ${day.isToday 
@@ -498,42 +550,42 @@ const Calendar = () => {
                     : ''
                   }
                 `}
+                title={holiday ? holiday.localName : ''}
               >
                 <span
                   className={`
                     text-xs sm:text-sm md:text-base font-bold mb-0.5
-                    ${day.isToday ? 'text-indigo-900' : ''}
-                    ${day.isCurrentMonth && !day.isToday ? 'text-gray-700' : ''}
+                    ${isHoliday && day.isCurrentMonth ? 'text-red-600' : ''}
+                    ${day.isToday && !isHoliday ? 'text-indigo-900' : ''}
+                    ${day.isCurrentMonth && !day.isToday && !isHoliday ? 'text-gray-700' : ''}
                   `}
                 >
                   {day.date}
                 </span>
 
-                {/* Meeting Indicators */}
+                {/* Holiday Indicator */}
+                {isHoliday && day.isCurrentMonth && (
+                  <div className="w-full text-[7px] sm:text-[8px] px-0.5 py-0.5 bg-red-500 text-white rounded truncate text-center mb-0.5">
+                    {holiday.localName}
+                  </div>
+                )}
+
+                {/* Meeting Indicators - Blue color for events */}
                 {dayMeetings.length > 0 && (
                   <div className="w-full flex flex-col gap-0.5 overflow-hidden">
-                    {dayMeetings.slice(0, 2).map((meeting) => {
-                      // Status based on both approvals
-                      const isApproved = meeting.headDept === 'approved' && meeting.ga === 'approved';
-                      const isRejected = meeting.headDept === 'rejected' || meeting.ga === 'rejected';
+                    {dayMeetings.slice(0, isHoliday ? 1 : 2).map((meeting) => {
                       return (
                         <div 
                           key={meeting.id} 
-                          className={`text-[8px] sm:text-[9px] px-1 py-1 sm:py-1.5 rounded truncate ${
-                            isApproved
-                              ? 'bg-green-500 text-white border-l-4 border-green-700' 
-                              : isRejected
-                              ? 'bg-red-500 text-white border-l-4 border-red-700'
-                              : 'bg-yellow-400 text-yellow-900 border-l-4 border-yellow-600'
-                          }`}
+                          className="text-[8px] sm:text-[9px] px-1 py-1 sm:py-1.5 rounded truncate bg-blue-500 text-white border-l-4 border-blue-700"
                         >
                           {meeting.jamMulai} - {meeting.namaRuangan}
                         </div>
                       );
                     })}
-                    {dayMeetings.length > 2 && (
-                      <div className="text-[8px] sm:text-[9px] text-indigo-600 font-semibold text-center py-0.5">
-                        +{dayMeetings.length - 2} lagi
+                    {dayMeetings.length > (isHoliday ? 1 : 2) && (
+                      <div className="text-[8px] sm:text-[9px] text-blue-600 font-semibold text-center py-0.5">
+                        +{dayMeetings.length - (isHoliday ? 1 : 2)} lagi
                       </div>
                     )}
                   </div>
@@ -740,7 +792,7 @@ const Calendar = () => {
                     {rooms.map(room => {
                       const bookingInfo = getRoomBookingInfo(room.name);
                       const isBooked = bookingInfo.isBooked;
-                      const hybridText = room.isHybrid === 1 ? ' | Hybrid' : '';
+                      const hybridText = room.isHybrid === 1 ? '-Hybrid' : '';
                       return (
                         <option 
                           key={room.id} 
@@ -751,7 +803,7 @@ const Calendar = () => {
                             backgroundColor: isBooked ? '#fef2f2' : 'inherit'
                           }}
                         >
-                          {room.name} (Kapasitas: {room.capacity}{hybridText}){isBooked ? ` - (Sudah dibooking: ${bookingInfo.bookedTimes.join(', ')})` : ''}
+                          {room.name}{hybridText} (Kapasitas: {room.capacity} orang){isBooked ? ` - (Sudah dibooking: ${bookingInfo.bookedTimes.join(', ')})` : ''}
                         </option>
                       );
                     })}
