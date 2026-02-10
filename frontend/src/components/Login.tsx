@@ -32,6 +32,7 @@ const Login = () => {
         localStorage.setItem('user', JSON.stringify(response.data.user));
         localStorage.setItem('userRole', response.data.user.role);
         localStorage.setItem('isAdminLoggedIn', 'true');
+        localStorage.setItem('loginTime', Date.now().toString()); // Store login timestamp for 10hr timeout
         
         navigate('/admin/monitoring');
       }

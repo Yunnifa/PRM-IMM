@@ -87,8 +87,30 @@ const Calendar = () => {
   const [loadingMaster, setLoadingMaster] = useState(true);
   const [overrideMode, setOverrideMode] = useState(false);
 
+  // Session timeout check (10 hours = 36000000 ms)
+  const SESSION_TIMEOUT = 10 * 60 * 60 * 1000; // 10 hours in milliseconds
+  
+  const checkSessionValidity = () => {
+    const loginTime = localStorage.getItem('loginTime');
+    const isLoggedIn = localStorage.getItem('isAdminLoggedIn') === 'true';
+    
+    if (isLoggedIn && loginTime) {
+      const elapsed = Date.now() - parseInt(loginTime);
+      if (elapsed > SESSION_TIMEOUT) {
+        // Session expired, clear login data
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        localStorage.removeItem('userRole');
+        localStorage.removeItem('isAdminLoggedIn');
+        localStorage.removeItem('loginTime');
+        return false;
+      }
+    }
+    return isLoggedIn;
+  };
+
   // Check if user is admin or GA (for override)
-  const isAdmin = localStorage.getItem('isAdminLoggedIn') === 'true';
+  const isAdmin = checkSessionValidity();
   const userRole = localStorage.getItem('userRole');
   const isGA = userRole === 'ga' || userRole === 'admin';
 
@@ -446,21 +468,31 @@ const Calendar = () => {
         </div>
       )}
 
-      {/* Admin Login Button - Top Right */}
-      {!isAdmin && (
-        <div className="absolute top-2 right-2 sm:top-4 sm:right-4 z-50">
-          <button
-            onClick={() => navigate('/login')}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-1 px-2 sm:py-2 sm:px-4 text-xs sm:text-base rounded-lg shadow-md transition duration-200 flex items-center gap-1 sm:gap-2"
-          >
-            <svg className="w-3 h-3 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
-            </svg>
-            <span className="sm:hidden">Login</span>
-            <span className="hidden sm:inline">Admin Login</span>
-          </button>
-        </div>
-      )}
+      {/* Admin Login / Dashboard Access Button - Top Right */}
+      <div className="absolute top-2 right-2 sm:top-4 sm:right-4 z-50">
+        <button
+          onClick={() => navigate(isAdmin ? '/admin/monitoring' : '/login')}
+          className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-1 px-2 sm:py-2 sm:px-4 text-xs sm:text-base rounded-lg shadow-md transition duration-200 flex items-center gap-1 sm:gap-2"
+        >
+          {isAdmin ? (
+            <>
+              <svg className="w-3 h-3 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+              </svg>
+              <span className="sm:hidden">Dashboard</span>
+              <span className="hidden sm:inline">Dashboard Access</span>
+            </>
+          ) : (
+            <>
+              <svg className="w-3 h-3 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+              </svg>
+              <span className="sm:hidden">Login</span>
+              <span className="hidden sm:inline">Admin Login</span>
+            </>
+          )}
+        </button>
+      </div>
 
       {/* Header */}
       <div className="bg-white/60 backdrop-blur-md shadow-lg rounded-xl p-2 sm:p-3 pb-0">
