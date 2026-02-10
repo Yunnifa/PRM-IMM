@@ -96,21 +96,36 @@ const host = process.env.NODE_ENV === 'production' ? '0.0.0.0' : 'localhost';
 async function startServer() {
   console.log('🔧 Starting PRM-IMM Backend...');
   
-  // Auto-sync database schema on startup
-  await syncSchema();
-  
-  // Verify email connection
-  await verifyEmailConnection();
-  
-  console.log(`🚀 Server is running on ${host}:${port}`);
-  console.log(`📚 Swagger UI: ${apiBaseUrl}/swagger`);
-  console.log(`📖 OpenAPI Spec: ${apiBaseUrl}/api/openapi.json`);
-
+  // Start server FIRST so healthcheck passes immediately
   serve({
     fetch: app.fetch,
     port,
     hostname: host,
   });
+  
+  console.log(`🚀 Server is running on ${host}:${port}`);
+  console.log(`📚 Swagger UI: ${apiBaseUrl}/swagger`);
+  console.log(`📖 OpenAPI Spec: ${apiBaseUrl}/api/openapi.json`);
+  
+  // Then do async initialization in background (non-blocking)
+  try {
+    // Auto-sync database schema
+    await syncSchema();
+  } catch (error) {
+    console.error('⚠️ Schema sync failed (non-fatal):', error);
+  }
+  
+  try {
+    // Verify email connection (with timeout)
+    const emailTimeout = new Promise<boolean>((_, reject) => 
+      setTimeout(() => reject(new Error('Email verification timeout')), 10000)
+    );
+    await Promise.race([verifyEmailConnection(), emailTimeout]);
+  } catch (error) {
+    console.error('⚠️ Email verification failed (non-fatal):', error);
+  }
+  
+  console.log('✅ Server initialization complete!');
 }
 
 startServer().catch(console.error);
