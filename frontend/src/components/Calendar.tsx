@@ -583,6 +583,7 @@ const Calendar = () => {
             const dayMeetings = getMeetingsForDate(day.fullDate);
             const holiday = getHolidayForDate(day.fullDate);
             const isHoliday = !!holiday;
+            const isSunday = index % 7 === 0; // Sunday is first column
             return (
               <div
                 key={index}
@@ -592,7 +593,7 @@ const Calendar = () => {
                   min-h-[60px] sm:min-h-[80px] md:min-h-[100px] lg:min-h-[120px]
                   transition-all cursor-pointer overflow-hidden
                   ${day.isCurrentMonth 
-                    ? isHoliday 
+                    ? isHoliday || isSunday
                       ? 'bg-red-50/60 hover:bg-red-100/70 border border-red-200 hover:border-red-300'
                       : 'bg-white/50 hover:bg-indigo-50/60 border border-gray-200 hover:border-indigo-300' 
                     : 'bg-gray-50/50 text-gray-400 border border-gray-100'
@@ -607,9 +608,9 @@ const Calendar = () => {
                 <span
                   className={`
                     text-xs sm:text-sm md:text-base font-bold mb-0.5
-                    ${isHoliday && day.isCurrentMonth ? 'text-red-600' : ''}
-                    ${day.isToday && !isHoliday ? 'text-indigo-900' : ''}
-                    ${day.isCurrentMonth && !day.isToday && !isHoliday ? 'text-gray-700' : ''}
+                    ${(isHoliday || isSunday) && day.isCurrentMonth ? 'text-red-600' : ''}
+                    ${day.isToday && !isHoliday && !isSunday ? 'text-indigo-900' : ''}
+                    ${day.isCurrentMonth && !day.isToday && !isHoliday && !isSunday ? 'text-gray-700' : ''}
                   `}
                 >
                   {day.date}
