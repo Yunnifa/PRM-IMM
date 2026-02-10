@@ -424,7 +424,7 @@ const Calendar = () => {
       )}
 
       {/* Header */}
-      <div className="bg-white/95 backdrop-blur-md shadow-lg rounded-xl p-2 sm:p-3 pb-0">
+      <div className="bg-white/60 backdrop-blur-md shadow-lg rounded-xl p-2 sm:p-3 pb-0">
         {/* Logo */}
         <div className="flex justify-center mb-2">
           <img 
@@ -461,7 +461,7 @@ const Calendar = () => {
 
             {/* Month Year Picker Modal */}
             {showMonthYearPicker && (
-              <div className="absolute top-full mt-4 left-1/2 transform -translate-x-1/2 bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl p-6 z-50 border-2 border-indigo-200 w-96">
+              <div className="absolute top-full mt-4 left-1/2 transform -translate-x-1/2 bg-white/60 backdrop-blur-md rounded-2xl shadow-2xl p-6 z-50 border-2 border-indigo-200 w-96">
                 {/* Year Selector */}
                 <div className="mb-6">
                   <div className="flex items-center justify-center gap-3">
@@ -527,9 +527,9 @@ const Calendar = () => {
       </div>
 
       {/* Calendar Grid */}
-      <div className="bg-white/95 backdrop-blur-md shadow-lg px-2 sm:px-3 pb-2 sm:pb-3 flex-1 flex flex-col overflow-y-auto rounded-xl">
+      <div className="bg-white/60 backdrop-blur-md shadow-lg px-2 sm:px-3 pb-2 sm:pb-3 flex-1 flex flex-col overflow-y-auto rounded-xl">
         {/* Day Names */}
-        <div className="sticky top-0 bg-white/95 backdrop-blur-md z-10 grid grid-cols-7 gap-1 sm:gap-2 mb-3 sm:mb-4 rounded-t-xl">
+        <div className="sticky top-0 bg-white/60 backdrop-blur-md z-10 grid grid-cols-7 gap-1 sm:gap-2 mb-3 sm:mb-4 rounded-t-xl">
           {dayNames.map((day, idx) => (
             <div
               key={day}
@@ -558,9 +558,9 @@ const Calendar = () => {
                   transition-all cursor-pointer overflow-hidden
                   ${day.isCurrentMonth 
                     ? isHoliday 
-                      ? 'bg-red-50/95 hover:bg-red-100/95 border border-red-200 hover:border-red-300'
-                      : 'bg-white/90 hover:bg-indigo-50/95 border border-gray-200 hover:border-indigo-300' 
-                    : 'bg-gray-50/90 text-gray-400 border border-gray-100'
+                      ? 'bg-red-50/60 hover:bg-red-100/70 border border-red-200 hover:border-red-300'
+                      : 'bg-white/50 hover:bg-indigo-50/60 border border-gray-200 hover:border-indigo-300' 
+                    : 'bg-gray-50/50 text-gray-400 border border-gray-100'
                   }
                   ${day.isToday 
                     ? 'ring-2 ring-indigo-500 bg-indigo-100 border-indigo-500' 
@@ -623,7 +623,7 @@ const Calendar = () => {
       {/* Date Detail Modal */}
       {showDateDetail && selectedDate && (
         <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setShowDateDetail(false)}>
-          <div className="bg-white/95 backdrop-blur-md rounded-xl shadow-2xl p-4 max-w-xl w-full max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white/70 backdrop-blur-md rounded-xl shadow-2xl p-4 max-w-xl w-full max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-3">
               <button
                 onClick={() => setShowDateDetail(false)}
@@ -732,7 +732,7 @@ const Calendar = () => {
       {/* Add Meeting Modal */}
       {showAddMeeting && (
         <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setShowAddMeeting(false)}>
-          <div className="bg-white/95 backdrop-blur-md rounded-xl shadow-2xl p-4 max-w-xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white/70 backdrop-blur-md rounded-xl shadow-2xl p-4 max-w-xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-3">
               <h2 className="text-xl font-bold text-indigo-900">Request Peminjaman Ruangan</h2>
               <button
