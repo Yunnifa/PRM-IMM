@@ -23,6 +23,7 @@ const DataFasilitas = () => {
   const [showImportModal, setShowImportModal] = useState(false);
   const [showExportDropdown, setShowExportDropdown] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc' | null>(null);
   
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -387,10 +388,24 @@ const DataFasilitas = () => {
     setTimeout(resetImport, 300);
   };
 
-  const filteredFasilitas = fasilitas.filter(item =>
-    item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (item.description && item.description.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  const toggleSort = () => {
+    setSortOrder(prev => {
+      if (prev === null) return 'asc';
+      if (prev === 'asc') return 'desc';
+      return null;
+    });
+  };
+
+  const filteredFasilitas = fasilitas
+    .filter(item =>
+      item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (item.description && item.description.toLowerCase().includes(searchTerm.toLowerCase()))
+    )
+    .sort((a, b) => {
+      if (sortOrder === null) return 0;
+      const comparison = a.name.localeCompare(b.name, 'id');
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
 
   // Pagination logic
   const totalPages = Math.ceil(filteredFasilitas.length / itemsPerPage);
@@ -511,7 +526,17 @@ const DataFasilitas = () => {
                 />
               </th>
               <th className="px-2 lg:px-4 py-2 lg:py-3 text-left text-xs lg:text-sm font-semibold">ID</th>
-              <th className="px-2 lg:px-4 py-2 lg:py-3 text-left text-xs lg:text-sm font-semibold">Nama Fasilitas</th>
+              <th className="px-2 lg:px-4 py-2 lg:py-3 text-left text-xs lg:text-sm font-semibold">
+                <button 
+                  onClick={toggleSort}
+                  className="flex items-center gap-1 hover:text-indigo-200 transition-colors"
+                >
+                  Nama Fasilitas
+                  <span className="text-xs">
+                    {sortOrder === 'asc' ? '▲' : sortOrder === 'desc' ? '▼' : '⇅'}
+                  </span>
+                </button>
+              </th>
               <th className="px-2 lg:px-4 py-2 lg:py-3 text-left text-xs lg:text-sm font-semibold">Deskripsi</th>
               <th className="px-2 lg:px-4 py-2 lg:py-3 text-left text-xs lg:text-sm font-semibold">Aksi</th>
             </tr>

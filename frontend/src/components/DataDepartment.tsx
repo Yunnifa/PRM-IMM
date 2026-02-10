@@ -21,6 +21,7 @@ const DataDepartment = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showExportDropdown, setShowExportDropdown] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc' | null>(null);
   
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -159,10 +160,24 @@ const DataDepartment = () => {
     doc.save(`department-data-${new Date().toISOString().split('T')[0]}.pdf`);
   };
 
-  const filteredDepartments = departments.filter(dept =>
-    dept.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (dept.description || '').toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const toggleSort = () => {
+    setSortOrder(prev => {
+      if (prev === null) return 'asc';
+      if (prev === 'asc') return 'desc';
+      return null;
+    });
+  };
+
+  const filteredDepartments = departments
+    .filter(dept =>
+      dept.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (dept.description || '').toLowerCase().includes(searchTerm.toLowerCase())
+    )
+    .sort((a, b) => {
+      if (sortOrder === null) return 0;
+      const comparison = a.name.localeCompare(b.name, 'id');
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
 
   // Pagination logic
   const totalPages = Math.ceil(filteredDepartments.length / itemsPerPage);
@@ -271,7 +286,17 @@ const DataDepartment = () => {
                 />
               </th>
               <th className="px-2 lg:px-4 py-2 lg:py-3 text-left text-xs lg:text-sm font-semibold">ID</th>
-              <th className="px-2 lg:px-4 py-2 lg:py-3 text-left text-xs lg:text-sm font-semibold">Nama Department</th>
+              <th className="px-2 lg:px-4 py-2 lg:py-3 text-left text-xs lg:text-sm font-semibold">
+                <button 
+                  onClick={toggleSort}
+                  className="flex items-center gap-1 hover:text-indigo-200 transition-colors"
+                >
+                  Nama Department
+                  <span className="text-xs">
+                    {sortOrder === 'asc' ? '▲' : sortOrder === 'desc' ? '▼' : '⇅'}
+                  </span>
+                </button>
+              </th>
               <th className="px-2 lg:px-4 py-2 lg:py-3 text-left text-xs lg:text-sm font-semibold">Deskripsi</th>
               <th className="px-2 lg:px-4 py-2 lg:py-3 text-left text-xs lg:text-sm font-semibold">Aksi</th>
             </tr>

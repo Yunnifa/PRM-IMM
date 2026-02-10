@@ -32,6 +32,7 @@ const DataUser = () => {
   const [showImportModal, setShowImportModal] = useState(false);
   const [showExportDropdown, setShowExportDropdown] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc' | null>(null);
   
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -463,13 +464,27 @@ const DataUser = () => {
     setTimeout(resetImport, 300);
   };
 
-  const filteredUsers = users.filter(user =>
-    user.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (user.whatsapp && user.whatsapp.includes(searchTerm)) ||
-    (user.department && user.department.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  const toggleSort = () => {
+    setSortOrder(prev => {
+      if (prev === null) return 'asc';
+      if (prev === 'asc') return 'desc';
+      return null;
+    });
+  };
+
+  const filteredUsers = users
+    .filter(user =>
+      user.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (user.whatsapp && user.whatsapp.includes(searchTerm)) ||
+      (user.department && user.department.toLowerCase().includes(searchTerm.toLowerCase()))
+    )
+    .sort((a, b) => {
+      if (sortOrder === null) return 0;
+      const comparison = a.fullName.localeCompare(b.fullName, 'id');
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
 
   // Pagination logic
   const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
@@ -593,7 +608,17 @@ const DataUser = () => {
               </th>
               <th className="px-2 lg:px-4 py-2 lg:py-3 text-left text-xs lg:text-sm font-semibold">ID</th>
               <th className="px-2 lg:px-4 py-2 lg:py-3 text-left text-xs lg:text-sm font-semibold">Username</th>
-              <th className="px-2 lg:px-4 py-2 lg:py-3 text-left text-xs lg:text-sm font-semibold">Nama Lengkap</th>
+              <th className="px-2 lg:px-4 py-2 lg:py-3 text-left text-xs lg:text-sm font-semibold">
+                <button 
+                  onClick={toggleSort}
+                  className="flex items-center gap-1 hover:text-indigo-200 transition-colors"
+                >
+                  Nama Lengkap
+                  <span className="text-xs">
+                    {sortOrder === 'asc' ? '▲' : sortOrder === 'desc' ? '▼' : '⇅'}
+                  </span>
+                </button>
+              </th>
               <th className="px-2 lg:px-4 py-2 lg:py-3 text-left text-xs lg:text-sm font-semibold">WhatsApp</th>
               <th className="px-2 lg:px-4 py-2 lg:py-3 text-left text-xs lg:text-sm font-semibold">Email</th>
               <th className="px-2 lg:px-4 py-2 lg:py-3 text-left text-xs lg:text-sm font-semibold">Department</th>
