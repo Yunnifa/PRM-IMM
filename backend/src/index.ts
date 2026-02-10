@@ -18,6 +18,9 @@ import meetingRequestsRoutes from './routes/meetingRequests';
 // Import middleware
 import apiLoggerMiddleware from './middleware/apiLogger';
 
+// Import database sync
+import { syncSchema } from './db/syncSchema';
+
 const app = new OpenAPIHono();
 
 // Get frontend URL from env or use defaults
@@ -84,12 +87,22 @@ app.doc('/api/openapi.json', {
 const port = parseInt(process.env.PORT || '3000');
 const host = process.env.NODE_ENV === 'production' ? '0.0.0.0' : 'localhost';
 
-console.log(`🚀 Server is running on ${host}:${port}`);
-console.log(`📚 Swagger UI: ${apiBaseUrl}/swagger`);
-console.log(`📖 OpenAPI Spec: ${apiBaseUrl}/api/openapi.json`);
+// Start server with auto schema sync
+async function startServer() {
+  console.log('🔧 Starting PRM-IMM Backend...');
+  
+  // Auto-sync database schema on startup
+  await syncSchema();
+  
+  console.log(`🚀 Server is running on ${host}:${port}`);
+  console.log(`📚 Swagger UI: ${apiBaseUrl}/swagger`);
+  console.log(`📖 OpenAPI Spec: ${apiBaseUrl}/api/openapi.json`);
 
-serve({
-  fetch: app.fetch,
-  port,
-  hostname: host,
-});
+  serve({
+    fetch: app.fetch,
+    port,
+    hostname: host,
+  });
+}
+
+startServer().catch(console.error);
