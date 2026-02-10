@@ -623,7 +623,7 @@ const Calendar = () => {
       {/* Date Detail Modal */}
       {showDateDetail && selectedDate && (
         <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setShowDateDetail(false)}>
-          <div className="bg-white/70 backdrop-blur-md rounded-xl shadow-2xl p-4 max-w-xl w-full max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white rounded-xl shadow-2xl p-4 max-w-xl w-full max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-3">
               <button
                 onClick={() => setShowDateDetail(false)}
@@ -732,7 +732,7 @@ const Calendar = () => {
       {/* Add Meeting Modal */}
       {showAddMeeting && (
         <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setShowAddMeeting(false)}>
-          <div className="bg-white/70 backdrop-blur-md rounded-xl shadow-2xl p-4 max-w-xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white rounded-xl shadow-2xl p-4 max-w-xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-3">
               <h2 className="text-xl font-bold text-indigo-900">Request Peminjaman Ruangan</h2>
               <button
