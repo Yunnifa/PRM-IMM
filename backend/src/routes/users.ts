@@ -158,31 +158,43 @@ app.openapi(updateUserRoute, async (c) => {
   const { id } = c.req.valid('param');
   const data = c.req.valid('json');
 
-  const [updatedUser] = await db
-    .update(users)
-    .set({ ...data, updatedAt: new Date() })
-    .where(eq(users.id, id))
-    .returning();
+  try {
+    console.log('📝 Updating user:', id, 'with data:', JSON.stringify(data));
+    
+    const [updatedUser] = await db
+      .update(users)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(users.id, id))
+      .returning();
 
-  if (!updatedUser) {
-    return c.json({ success: false, message: 'User not found' }, 200);
+    if (!updatedUser) {
+      return c.json({ success: false, message: 'User not found' }, 200);
+    }
+
+    console.log('✅ User updated successfully:', updatedUser.id);
+
+    return c.json({
+      success: true,
+      data: {
+        id: updatedUser.id,
+        username: updatedUser.username,
+        email: updatedUser.email,
+        fullName: updatedUser.fullName,
+        whatsapp: updatedUser.whatsapp,
+        birthDate: updatedUser.birthDate,
+        department: updatedUser.department,
+        role: updatedUser.role,
+        isActive: updatedUser.isActive,
+        createdAt: updatedUser.createdAt?.toISOString() || '',
+      },
+    }, 200);
+  } catch (error: any) {
+    console.error('❌ Error updating user:', error);
+    return c.json({ 
+      success: false, 
+      message: error.message || 'Failed to update user'
+    }, 200);
   }
-
-  return c.json({
-    success: true,
-    data: {
-      id: updatedUser.id,
-      username: updatedUser.username,
-      email: updatedUser.email,
-      fullName: updatedUser.fullName,
-      whatsapp: updatedUser.whatsapp,
-      birthDate: updatedUser.birthDate,
-      department: updatedUser.department,
-      role: updatedUser.role,
-      isActive: updatedUser.isActive,
-      createdAt: updatedUser.createdAt?.toISOString() || '',
-    },
-  }, 200);
 });
 
 // Delete user (soft delete)
