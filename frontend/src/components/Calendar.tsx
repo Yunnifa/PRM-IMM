@@ -67,6 +67,7 @@ const Calendar = () => {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [showDateDetail, setShowDateDetail] = useState(false);
   const [showAddMeeting, setShowAddMeeting] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [newMeeting, setNewMeeting] = useState({
     nama: '',
     whatsapp: '',
@@ -375,8 +376,9 @@ const Calendar = () => {
 
   const handleSubmitMeeting = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedDate) return;
+    if (!selectedDate || submitting) return;
 
+    setSubmitting(true);
     try {
       // Get user data if logged in
       const userStr = localStorage.getItem('user');
@@ -419,6 +421,8 @@ const Calendar = () => {
     } catch (error: any) {
       alert(error.message || 'Gagal mengajukan request');
       console.error('Error submitting meeting:', error);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -1077,15 +1081,30 @@ const Calendar = () => {
                 <button
                   type="button"
                   onClick={() => setShowAddMeeting(false)}
-                  className="flex-1 px-4 py-2.5 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold rounded-lg transition-all text-sm"
+                  disabled={submitting}
+                  className={`flex-1 px-4 py-2.5 font-semibold rounded-lg transition-all text-sm ${
+                    submitting ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+                  }`}
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg transition-all shadow-lg hover:shadow-xl text-sm"
+                  disabled={submitting}
+                  className={`flex-1 px-4 py-2.5 font-semibold rounded-lg transition-all shadow-lg text-sm flex items-center justify-center gap-2 ${
+                    submitting 
+                      ? 'bg-gray-400 cursor-not-allowed' 
+                      : 'bg-indigo-600 hover:bg-indigo-700 hover:shadow-xl'
+                  } text-white`}
                 >
-                  Submit Request
+                  {submitting ? (
+                    <>
+                      <img src="/Loader-1.gif" alt="Loading" className="h-5 w-5" />
+                      <span>Mengirim...</span>
+                    </>
+                  ) : (
+                    'Submit Request'
+                  )}
                 </button>
               </div>
             </form>
