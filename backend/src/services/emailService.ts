@@ -238,10 +238,20 @@ export async function sendMeetingRequestNotification(
     };
 
     try {
-      await transporter.sendMail(mailOptions);
-      console.log(`✅ Email notification sent to ${approver.email} (${roleLabel})`);
-    } catch (error) {
-      console.error(`❌ Failed to send email to ${approver.email}:`, error);
+      console.log(`📧 Sending email...`);
+      console.log(`   From: ${mailOptions.from}`);
+      console.log(`   To: ${mailOptions.to}`);
+      console.log(`   Subject: ${mailOptions.subject}`);
+      console.log(`   Role: ${roleLabel}`);
+      
+      const info = await transporter.sendMail(mailOptions);
+      console.log(`✅ Email sent successfully!`);
+      console.log(`   Message ID: ${info.messageId}`);
+      console.log(`   Response: ${info.response}`);
+    } catch (error: any) {
+      console.error(`❌ Failed to send email to ${approver.email}`);
+      console.error(`   Error Code: ${error.code || 'N/A'}`);
+      console.error(`   Error Message: ${error.message}`);
       // Don't throw - continue sending to other approvers
     }
   }
@@ -385,10 +395,19 @@ export async function sendApprovalNotification(
   };
 
   try {
-    await transporter.sendMail(mailOptions);
-    console.log(`✅ Approval notification sent to ${requesterEmail}`);
-  } catch (error) {
-    console.error(`❌ Failed to send approval notification to ${requesterEmail}:`, error);
+    console.log(`📧 Sending approval notification...`);
+    console.log(`   To: ${requesterEmail}`);
+    console.log(`   Subject: ${mailOptions.subject}`);
+    console.log(`   Action: ${action}`);
+    
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`✅ Approval notification sent successfully!`);
+    console.log(`   Message ID: ${info.messageId}`);
+    console.log(`   Response: ${info.response}`);
+  } catch (error: any) {
+    console.error(`❌ Failed to send approval notification to ${requesterEmail}`);
+    console.error(`   Error Code: ${error.code || 'N/A'}`);
+    console.error(`   Error Message: ${error.message}`);
   }
 }
 
@@ -397,11 +416,17 @@ export async function sendApprovalNotification(
  */
 export async function verifyEmailConnection(): Promise<boolean> {
   try {
+    console.log('📧 Verifying email connection...');
+    console.log(`   SMTP User: ${process.env.SMTP_USER || 'Generalaffairsimm@gmail.com'}`);
+    console.log(`   SMTP Pass: ${process.env.SMTP_PASS ? '****' + process.env.SMTP_PASS.slice(-4) : 'Not set (using default)'}`);
+    
     await transporter.verify();
     console.log('✅ Email service connected successfully');
     return true;
-  } catch (error) {
-    console.error('❌ Email service connection failed:', error);
+  } catch (error: any) {
+    console.error('❌ Email service connection failed');
+    console.error(`   Error Code: ${error.code || 'N/A'}`);
+    console.error(`   Error Message: ${error.message}`);
     return false;
   }
 }

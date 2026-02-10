@@ -21,6 +21,9 @@ import apiLoggerMiddleware from './middleware/apiLogger';
 // Import database sync
 import { syncSchema } from './db/syncSchema';
 
+// Import email service
+import { verifyEmailConnection } from './services/emailService';
+
 const app = new OpenAPIHono();
 
 // Get frontend URL from env or use defaults
@@ -93,6 +96,9 @@ async function startServer() {
   
   // Auto-sync database schema on startup
   await syncSchema();
+  
+  // Verify email connection
+  await verifyEmailConnection();
   
   console.log(`🚀 Server is running on ${host}:${port}`);
   console.log(`📚 Swagger UI: ${apiBaseUrl}/swagger`);
