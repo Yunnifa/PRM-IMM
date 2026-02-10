@@ -68,7 +68,7 @@ export const roomFacilities = pgTable('room_facilities', {
 export const meetingRequests = pgTable('meeting_requests', {
   id: serial('id').primaryKey(),
   requestId: varchar('request_id', { length: 50 }).notNull().unique(), // MTG-1, MTG-2, etc.
-  userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  userId: integer('user_id').references(() => users.id, { onDelete: 'cascade' }), // Nullable for guest users
   nama: varchar('nama', { length: 255 }).notNull(),
   whatsapp: varchar('whatsapp', { length: 20 }).notNull(),
   department: varchar('department', { length: 100 }).notNull(),
@@ -97,6 +97,23 @@ export const meetingRequestHistory = pgTable('meeting_request_history', {
   status: historyStatusEnum('status').notNull(),
   notes: text('notes'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// Email Status Enum
+export const emailStatusEnum = pgEnum('email_status', ['sent', 'failed']);
+
+// Email Logs Table - untuk tracking email yang dikirim
+export const emailLogs = pgTable('email_logs', {
+  id: serial('id').primaryKey(),
+  toEmail: varchar('to_email', { length: 255 }).notNull(),
+  toName: varchar('to_name', { length: 255 }),
+  subject: varchar('subject', { length: 500 }).notNull(),
+  emailType: varchar('email_type', { length: 50 }).notNull(), // 'meeting_request', 'approval_notification', etc.
+  meetingRequestId: integer('meeting_request_id').references(() => meetingRequests.id, { onDelete: 'set null' }),
+  status: emailStatusEnum('status').notNull(),
+  messageId: varchar('message_id', { length: 255 }), // ID dari SMTP server
+  errorMessage: text('error_message'), // Jika gagal
+  sentAt: timestamp('sent_at').defaultNow().notNull(),
 });
 
 // API Logs Table - untuk mencatat semua request yang masuk

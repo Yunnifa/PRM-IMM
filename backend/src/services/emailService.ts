@@ -1,4 +1,6 @@
 import nodemailer from 'nodemailer';
+import { db } from '../db';
+import { emailLogs } from '../db/schema';
 
 // Configure the email transporter using Gmail SMTP
 const transporter = nodemailer.createTransport({
@@ -8,6 +10,35 @@ const transporter = nodemailer.createTransport({
     pass: process.env.SMTP_PASS || 'Indo@2025',
   },
 });
+
+/**
+ * Log email to database
+ */
+async function logEmail(data: {
+  toEmail: string;
+  toName?: string;
+  subject: string;
+  emailType: string;
+  meetingRequestId?: number;
+  status: 'sent' | 'failed';
+  messageId?: string;
+  errorMessage?: string;
+}) {
+  try {
+    await db.insert(emailLogs).values({
+      toEmail: data.toEmail,
+      toName: data.toName || null,
+      subject: data.subject,
+      emailType: data.emailType,
+      meetingRequestId: data.meetingRequestId || null,
+      status: data.status,
+      messageId: data.messageId || null,
+      errorMessage: data.errorMessage || null,
+    });
+  } catch (error) {
+    console.error('Failed to log email to database:', error);
+  }
+}
 
 interface MeetingRequestEmailData {
   requestId: string;
@@ -248,10 +279,30 @@ export async function sendMeetingRequestNotification(
       console.log(`✅ Email sent successfully!`);
       console.log(`   Message ID: ${info.messageId}`);
       console.log(`   Response: ${info.response}`);
+      
+      // Log successful email to database
+      await logEmail({
+        toEmail: approver.email,
+        toName: approver.fullName,
+        subject: mailOptions.subject,
+        emailType: 'meeting_request',
+        status: 'sent',
+        messageId: info.messageId,
+      });
     } catch (error: any) {
       console.error(`❌ Failed to send email to ${approver.email}`);
       console.error(`   Error Code: ${error.code || 'N/A'}`);
       console.error(`   Error Message: ${error.message}`);
+      
+      // Log failed email to database
+      await logEmail({
+        toEmail: approver.email,
+        toName: approver.fullName,
+        subject: mailOptions.subject,
+        emailType: 'meeting_request',
+        status: 'failed',
+        errorMessage: error.message,
+      });
       // Don't throw - continue sending to other approvers
     }
   }
@@ -404,10 +455,30 @@ export async function sendApprovalNotification(
     console.log(`✅ Approval notification sent successfully!`);
     console.log(`   Message ID: ${info.messageId}`);
     console.log(`   Response: ${info.response}`);
+    
+    // Log successful email to database
+    await logEmail({
+      toEmail: requesterEmail,
+      toName: requesterName,
+      subject: mailOptions.subject,
+      emailType: 'approval_notification',
+      status: 'sent',
+      messageId: info.messageId,
+    });
   } catch (error: any) {
     console.error(`❌ Failed to send approval notification to ${requesterEmail}`);
     console.error(`   Error Code: ${error.code || 'N/A'}`);
     console.error(`   Error Message: ${error.message}`);
+    
+    // Log failed email to database
+    await logEmail({
+      toEmail: requesterEmail,
+      toName: requesterName,
+      subject: mailOptions.subject,
+      emailType: 'approval_notification',
+      status: 'failed',
+      errorMessage: error.message,
+    });
   }
 }
 

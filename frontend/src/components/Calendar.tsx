@@ -405,7 +405,7 @@ const Calendar = () => {
       // Get user data if logged in
       const userStr = localStorage.getItem('user');
       const user = userStr ? JSON.parse(userStr) : null;
-      const userId = user?.id || 0;
+      const userId = user?.id || null; // null for guest users
 
       await meetingRequestService.create({
         userId: userId,

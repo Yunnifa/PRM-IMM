@@ -36,7 +36,7 @@ const MeetingRequestSchema = z.object({
 });
 
 const CreateMeetingRequestSchema = z.object({
-  userId: z.number(),
+  userId: z.number().nullable().optional(), // Optional for guest users
   nama: z.string().min(1),
   whatsapp: z.string().min(1),
   department: z.string().min(1),
@@ -167,9 +167,13 @@ app.openapi(createMeetingRequestRoute, async (c) => {
   const count = await db.select().from(meetingRequests);
   const requestId = `MTG-${count.length + 1}`;
 
+  // Handle userId - set to null if 0 or not provided (guest user)
+  const userId = data.userId && data.userId > 0 ? data.userId : null;
+
   const [newRequest] = await db.insert(meetingRequests).values({
     requestId,
     ...data,
+    userId, // Override with properly handled userId
   }).returning();
 
   // Create initial history entry

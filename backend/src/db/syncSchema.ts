@@ -162,12 +162,39 @@ export async function syncSchema(): Promise<void> {
       );
     `);
 
+    // Create email_status enum
+    await db.execute(sql`
+      DO $$ BEGIN
+        CREATE TYPE email_status AS ENUM ('sent', 'failed');
+      EXCEPTION
+        WHEN duplicate_object THEN null;
+      END $$;
+    `);
+
+    // Create email_logs table
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS email_logs (
+        id SERIAL PRIMARY KEY,
+        to_email VARCHAR(255) NOT NULL,
+        to_name VARCHAR(255),
+        subject VARCHAR(500) NOT NULL,
+        email_type VARCHAR(50) NOT NULL,
+        meeting_request_id INTEGER REFERENCES meeting_requests(id) ON DELETE SET NULL,
+        status email_status NOT NULL,
+        message_id VARCHAR(255),
+        error_message TEXT,
+        sent_at TIMESTAMP DEFAULT NOW() NOT NULL
+      );
+    `);
+
     // Add missing columns to existing tables (safe migration)
     const alterStatements = [
       `ALTER TABLE users ADD COLUMN IF NOT EXISTS birth_date VARCHAR(10)`,
       `ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active INTEGER DEFAULT 1`,
       `ALTER TABLE departments ADD COLUMN IF NOT EXISTS is_active INTEGER DEFAULT 1`,
       `ALTER TABLE rooms ADD COLUMN IF NOT EXISTS is_hybrid INTEGER DEFAULT 0`,
+      // Make user_id nullable for guest users
+      `ALTER TABLE meeting_requests ALTER COLUMN user_id DROP NOT NULL`,
     ];
 
     for (const stmt of alterStatements) {
