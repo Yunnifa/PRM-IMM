@@ -37,6 +37,20 @@ const DataMonitoring = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  // Get current user info from localStorage
+  const userStr = localStorage.getItem('user');
+  const currentUser = userStr ? JSON.parse(userStr) : null;
+  const userRole = currentUser?.role || localStorage.getItem('userRole') || '';
+  const userDepartment = currentUser?.department || '';
+
+  // Role checks
+  const isAdmin = userRole === 'admin';
+  const isHeadDept = userRole === 'head_dept';
+  const isGA = userRole === 'ga';
+  // GA column can be approved by: admin, ga role, or head_dept/admin with department containing 'GA'
+  const canApproveGA = isAdmin || isGA || (isHeadDept && userDepartment?.toLowerCase()?.includes('ga'));
+  const canApproveHeadDept = isAdmin || isHeadDept;
+
   // Fetch meetings from backend
   useEffect(() => {
     fetchMeetings();
@@ -143,7 +157,9 @@ const DataMonitoring = () => {
     try {
       await meetingRequestService.updateApproval(meetingId, {
         type: type,
-        notes: confirmNotes || undefined
+        notes: confirmNotes || undefined,
+        userRole: userRole,
+        userDepartment: userDepartment,
       });
 
       // Refresh data after approval
@@ -276,7 +292,7 @@ const DataMonitoring = () => {
       'Ruangan': m.namaRuangan,
       'Fasilitas': m.fasilitas,
       'Head Dept': m.headDept,
-      'General Affairs': m.ga
+      'General Affair': m.ga
     }));
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
@@ -287,7 +303,7 @@ const DataMonitoring = () => {
   const exportToCSV = () => {
     setShowExportDropdown(false);
     // CSV export implementation
-    const headers = ['ID', 'Nama', 'Department', 'Tanggal', 'Hari', 'Jam Mulai', 'Jam Berakhir', 'Jumlah Peserta', 'Agenda', 'Ruangan', 'Fasilitas', 'Head Dept', 'General Affairs'];
+    const headers = ['ID', 'Nama', 'Department', 'Tanggal', 'Hari', 'Jam Mulai', 'Jam Berakhir', 'Jumlah Peserta', 'Agenda', 'Ruangan', 'Fasilitas', 'Head Dept', 'General Affair'];
     const csvData = filteredMeetings.map(m => [
       m.id, m.nama, m.department, m.tanggal, m.hari, m.jamMulai, m.jamBerakhir, 
       m.jumlahPeserta, m.agenda, m.namaRuangan, m.fasilitas, m.headDept, m.ga
@@ -316,7 +332,7 @@ const DataMonitoring = () => {
     
     autoTable(doc, {
       startY: 30,
-      head: [['ID', 'Nama', 'Department', 'Tanggal', 'Jam', 'Peserta', 'Agenda', 'Ruangan', 'Head Dept', 'General Affairs']],
+      head: [['ID', 'Nama', 'Department', 'Tanggal', 'Jam', 'Peserta', 'Agenda', 'Ruangan', 'Head Dept', 'General Affair']],
       body: filteredMeetings.map(m => [
         m.id, m.nama, m.department, m.tanggal, 
         `${m.jamMulai}-${m.jamBerakhir}`, m.jumlahPeserta, 
@@ -637,7 +653,7 @@ const DataMonitoring = () => {
                 <th className="px-2 lg:px-4 py-2 lg:py-3 text-left text-xs lg:text-sm font-semibold">Ruangan</th>
                 <th className="px-2 lg:px-4 py-2 lg:py-3 text-left text-xs lg:text-sm font-semibold">Fasilitas</th>
                 <th className="px-2 lg:px-4 py-2 lg:py-3 text-left text-xs lg:text-sm font-semibold">Head Dept</th>
-                <th className="px-2 lg:px-4 py-2 lg:py-3 text-left text-xs lg:text-sm font-semibold">GA</th>
+                <th className="px-2 lg:px-4 py-2 lg:py-3 text-left text-xs lg:text-sm font-semibold">General Affair</th>
                 <th className="px-2 lg:px-4 py-2 lg:py-3 text-left text-xs lg:text-sm font-semibold">Edit</th>
                 <th className="px-2 lg:px-4 py-2 lg:py-3 text-left text-xs lg:text-sm font-semibold">History</th>
               </tr>
@@ -683,7 +699,7 @@ const DataMonitoring = () => {
                       <div className="truncate" title={meeting.fasilitas}>{meeting.fasilitas}</div>
                     </td>
                     <td className="px-2 lg:px-4 py-2 lg:py-3 text-xs lg:text-sm">
-                      {meeting.headDept === 'pending' ? (
+                      {meeting.headDept === 'pending' && canApproveHeadDept ? (
                         <div className="flex gap-1">
                           <button
                             onClick={() => handleApproveHeadDept(meeting.id)}
@@ -698,6 +714,8 @@ const DataMonitoring = () => {
                             Reject
                           </button>
                         </div>
+                      ) : meeting.headDept === 'pending' ? (
+                        <span className="px-2 lg:px-3 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">Pending</span>
                       ) : (
                         <div>
                           {meeting.headDept === 'approved' && (
@@ -710,8 +728,12 @@ const DataMonitoring = () => {
                       )}
                     </td>
                     <td className="px-2 lg:px-4 py-2 lg:py-3 text-xs lg:text-sm">
-                      {/* General Affairs - Can approve/reject independently */}
-                      {meeting.ga === 'pending' ? (
+                      {/* General Affair — only after Head Dept approved */}
+                      {meeting.headDept !== 'approved' ? (
+                        <span className="px-2 lg:px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-500">
+                          {meeting.headDept === 'rejected' ? 'Ditolak HD' : 'Menunggu HD'}
+                        </span>
+                      ) : meeting.ga === 'pending' && canApproveGA ? (
                         <div className="flex gap-1">
                           <button
                             onClick={() => handleApproveGA(meeting.id)}
@@ -726,6 +748,8 @@ const DataMonitoring = () => {
                             Reject
                           </button>
                         </div>
+                      ) : meeting.ga === 'pending' ? (
+                        <span className="px-2 lg:px-3 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">Pending</span>
                       ) : (
                         <div>
                           {meeting.ga === 'approved' && (

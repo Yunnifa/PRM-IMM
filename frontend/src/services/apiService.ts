@@ -172,6 +172,8 @@ export interface UpdateMeetingRequestInput {
 export interface UpdateApprovalInput {
   type: 'approveHeadDept' | 'rejectHeadDept' | 'approveGA' | 'rejectGA';
   notes?: string;
+  userRole?: string;
+  userDepartment?: string;
 }
 
 export interface UpdateUserInput {

@@ -1,4 +1,5 @@
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi';
+import { HTTPException } from 'hono/http-exception';
 import { db } from '../db';
 import { meetingRequests, meetingRequestHistory, users } from '../db/schema';
 import { eq, desc, and, or } from 'drizzle-orm';
@@ -53,6 +54,8 @@ const CreateMeetingRequestSchema = z.object({
 const UpdateApprovalSchema = z.object({
   type: z.enum(['approveHeadDept', 'rejectHeadDept', 'approveGA', 'rejectGA']),
   notes: z.string().optional(),
+  userRole: z.string().optional(),
+  userDepartment: z.string().optional(),
 });
 
 const UpdateMeetingRequestSchema = z.object({
@@ -372,7 +375,24 @@ const updateApprovalRoute = createRoute({
 
 app.openapi(updateApprovalRoute, async (c) => {
   const { id } = c.req.valid('param');
-  const { type, notes } = c.req.valid('json');
+  const { type, notes, userRole, userDepartment } = c.req.valid('json');
+
+  // === VALIDATION: Role-based restrictions ===
+  // Head Dept can only approve/reject Head Dept column
+  if (userRole === 'head_dept' && (type === 'approveGA' || type === 'rejectGA')) {
+    throw new HTTPException(403, { message: 'Head Department tidak dapat melakukan approval General Affair' });
+  }
+
+  // GA approval requires Head Dept to be approved first
+  if (type === 'approveGA' || type === 'rejectGA') {
+    const [currentRequest] = await db.select({ headDept: meetingRequests.headDept })
+      .from(meetingRequests)
+      .where(eq(meetingRequests.id, id));
+    
+    if (currentRequest && currentRequest.headDept !== 'approved') {
+      throw new HTTPException(400, { message: 'Head Department harus approve terlebih dahulu sebelum General Affair dapat melakukan approval' });
+    }
+  }
 
   let updateData: any = {};
   let historyAction = '';
@@ -394,14 +414,14 @@ app.openapi(updateApprovalRoute, async (c) => {
       break;
     case 'approveGA':
       updateData = { ga: 'approved' };
-      historyAction = 'Approved by General Affairs';
-      historyBy = 'General Affairs';
+      historyAction = 'Approved by General Affair';
+      historyBy = 'General Affair';
       historyStatus = 'approved';
       break;
     case 'rejectGA':
       updateData = { ga: 'rejected' };
-      historyAction = 'Rejected by General Affairs';
-      historyBy = 'General Affairs';
+      historyAction = 'Rejected by General Affair';
+      historyBy = 'General Affair';
       historyStatus = 'rejected';
       break;
   }
