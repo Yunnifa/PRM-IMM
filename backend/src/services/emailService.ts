@@ -138,7 +138,7 @@ export async function sendMeetingRequestNotification(
         <div class="info-row"><span class="info-label">Status</span><span class="info-value"><span class="badge">⏳ Menunggu Persetujuan</span></span></div>
       </div>
       <p>Silakan klik tombol di bawah untuk login ke sistem dan melakukan <strong>Approve</strong> atau <strong>Reject</strong> permintaan ini.</p>
-      <div class="btn-container"><a href="${loginUrl}" class="btn">🔐 Login & Review Permintaan</a></div>
+      <div class="btn-container"><a href="${loginUrl}" class="btn">✅ Lakukan Persetujuan</a></div>
       <p style="color: #64748b; font-size: 13px;">Setelah login, Anda akan diarahkan ke halaman Monitoring untuk melihat detail dan memberikan persetujuan.</p>
     </div>
     <div class="footer">
@@ -191,106 +191,24 @@ export async function sendMeetingRequestNotification(
 
 /**
  * Send approval/rejection notification to the requester
+ * NOTE: Disabled — pemohon (guest user) cek status langsung di halaman Calendar.
+ * Tidak ada notifikasi email untuk approval/rejection.
  */
 export async function sendApprovalNotification(
-  requesterEmail: string,
-  requesterName: string,
-  meetingData: MeetingRequestEmailData,
-  approverRole: 'head_dept' | 'ga',
-  action: 'approved' | 'rejected',
-  notes?: string
+  _requesterEmail: string,
+  _requesterName: string,
+  _meetingData: MeetingRequestEmailData,
+  _approverRole: 'head_dept' | 'ga',
+  _action: 'approved' | 'rejected',
+  _notes?: string
 ): Promise<void> {
-  const senderEmail = process.env.SMTP_USER;
-  if (!senderEmail) {
-    console.log('⚠️ Email skipped - SMTP_USER not configured');
-    return;
-  }
-
-  const roleLabel = approverRole === 'head_dept' ? 'Head Department' : 'General Affairs';
-  const actionLabel = action === 'approved' ? 'Disetujui' : 'Ditolak';
-  const actionColor = action === 'approved' ? '#10b981' : '#ef4444';
-  const actionEmoji = action === 'approved' ? '✅' : '❌';
-
-  const htmlContent = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Update Status Permintaan Ruang Meeting</title>
-  <style>
-    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5; }
-    .container { background-color: #ffffff; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); overflow: hidden; }
-    .header { background: ${actionColor}; color: white; padding: 30px; text-align: center; }
-    .header h1 { margin: 0; font-size: 24px; }
-    .content { padding: 30px; }
-    .status-badge { display: inline-block; padding: 8px 20px; background-color: ${action === 'approved' ? '#d1fae5' : '#fee2e2'}; color: ${actionColor}; border-radius: 20px; font-weight: 600; margin: 10px 0; }
-    .info-box { background-color: #f8fafc; border-left: 4px solid ${actionColor}; padding: 20px; margin: 20px 0; border-radius: 0 8px 8px 0; }
-    .notes-box { background-color: #fef3c7; border: 1px solid #fcd34d; padding: 15px; border-radius: 8px; margin: 20px 0; }
-    .footer { background-color: #f8fafc; padding: 20px 30px; text-align: center; font-size: 12px; color: #64748b; }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="header">
-      <h1>${actionEmoji} Permintaan ${actionLabel}</h1>
-    </div>
-    <div class="content">
-      <p>Halo <strong>${requesterName}</strong>,</p>
-      <p>Permintaan ruang meeting Anda dengan ID <strong>${meetingData.requestId}</strong> telah <span class="status-badge">${actionLabel}</span> oleh <strong>${roleLabel}</strong>.</p>
-      <div class="info-box">
-        <p><strong>Detail Permintaan:</strong></p>
-        <p>📅 ${meetingData.hari}, ${meetingData.tanggal}</p>
-        <p>⏰ ${meetingData.jamMulai} - ${meetingData.jamBerakhir}</p>
-        <p>🏢 ${meetingData.namaRuangan}</p>
-        <p>📋 ${meetingData.agenda}</p>
-      </div>
-      ${notes ? `<div class="notes-box"><p><strong>📝 Catatan dari ${roleLabel}:</strong></p><p>${notes}</p></div>` : ''}
-      <p style="color: #64748b; font-size: 13px;">${action === 'approved' ? 'Silakan pastikan Anda hadir tepat waktu dan menggunakan ruangan sesuai jadwal yang disetujui.' : 'Jika Anda ingin mengajukan ulang, silakan buat permintaan baru melalui sistem.'}</p>
-    </div>
-    <div class="footer">
-      <p>Email ini dikirim secara otomatis oleh sistem PRM-IMM.</p>
-      <p>© ${new Date().getFullYear()} PT Indominco Mandiri - Meeting Room Management System</p>
-    </div>
-  </div>
-</body>
-</html>`;
-
-  const subject = `PRM-${meetingData.nama}-${meetingData.agenda} (${actionLabel})`;
-
-  try {
-    console.log(`📧 Sending approval notification to ${requesterEmail}...`);
-    
-    const info = await transporter.sendMail({
-      from: `"General Affairs IMM" <${senderEmail}>`,
-      to: requesterEmail,
-      subject,
-      html: htmlContent,
-    });
-
-    console.log(`✅ Approval notification sent! Message ID: ${info.messageId}`);
-    
-    await logEmail({
-      toEmail: requesterEmail,
-      toName: requesterName,
-      subject,
-      emailType: 'approval_notification',
-      status: 'sent',
-      messageId: info.messageId,
-    });
-  } catch (error: any) {
-    console.error(`❌ Failed to send notification to ${requesterEmail}: ${error.message}`);
-    
-    await logEmail({
-      toEmail: requesterEmail,
-      toName: requesterName,
-      subject,
-      emailType: 'approval_notification',
-      status: 'failed',
-      errorMessage: error.message,
-    });
-  }
+  // Pemohon tidak mendapat email notifikasi.
+  // Mereka harus cek status di halaman Calendar.
+  console.log('ℹ️ Approval notification skipped — pemohon cek status di Calendar');
+  return;
 }
+
+
 
 /**
  * Verify email connection
