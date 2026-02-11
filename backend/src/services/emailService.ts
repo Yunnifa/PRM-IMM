@@ -7,6 +7,7 @@ const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || 'smtp.office365.com',
   port: parseInt(process.env.SMTP_PORT || '587'),
   secure: false, // false for port 587 (STARTTLS)
+  family: 4, // Force IPv4 — Railway IPv6 routing causes ENETUNREACH
   auth: {
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
