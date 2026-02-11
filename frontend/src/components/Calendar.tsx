@@ -351,7 +351,14 @@ const Calendar = () => {
 
   const getMeetingsForDate = (date: Date): Meeting[] => {
     const dateStr = formatDate(date);
-    return meetings.filter(m => m.tanggal === dateStr);
+    return meetings
+      .filter(m => m.tanggal === dateStr)
+      .sort((a, b) => {
+        // Sort by request number ascending (MTG-1, MTG-2, MTG-3...)
+        const numA = parseInt(a.requestId.replace('MTG-', '')) || 0;
+        const numB = parseInt(b.requestId.replace('MTG-', '')) || 0;
+        return numA - numB;
+      });
   };
 
   const handleDateClick = (day: CalendarDay) => {

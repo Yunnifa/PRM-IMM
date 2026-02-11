@@ -7,9 +7,14 @@ const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
     user: process.env.SMTP_USER || 'Generalaffairsimm@gmail.com',
-    pass: process.env.SMTP_PASS || 'Indo@2025',
+    pass: process.env.SMTP_PASS, // Must be App Password (16 chars) when 2FA is enabled
   },
 });
+
+// Verify transporter on startup
+transporter.verify()
+  .then(() => console.log('✅ Email transporter ready'))
+  .catch((err) => console.error('❌ Email transporter error:', err.message));
 
 /**
  * Log email to database
