@@ -1,37 +1,31 @@
-import nodemailer from 'nodemailer';
+import { Resend } from 'resend';
 import 'dotenv/config';
 
 // Test email configuration
 async function testEmail() {
-  console.log('🔧 Testing email configuration...\n');
-  console.log('SMTP_USER:', process.env.SMTP_USER);
-  console.log('SMTP_PASS:', process.env.SMTP_PASS ? '****' + process.env.SMTP_PASS.slice(-4) : 'NOT SET');
+  console.log('🔧 Testing Resend email configuration...\n');
+  console.log('RESEND_API_KEY:', process.env.RESEND_API_KEY ? 're_****' + process.env.RESEND_API_KEY.slice(-4) : 'NOT SET');
   
-  const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-      user: process.env.SMTP_USER || 'Generalaffairsimm@gmail.com',
-      pass: process.env.SMTP_PASS || '',
-    },
-  });
+  if (!process.env.RESEND_API_KEY) {
+    console.error('\n❌ RESEND_API_KEY is not set!');
+    console.log('\nTo fix this:');
+    console.log('1. Go to https://resend.com and sign up (free)');
+    console.log('2. Create an API key at https://resend.com/api-keys');
+    console.log('3. Set RESEND_API_KEY in your .env file or Railway variables');
+    process.exit(1);
+  }
 
-  // Test email addresses - update these with actual Head Dept and GA emails
-  const testRecipients = [
-    { email: 'test@example.com', role: 'Head Department' },  // Replace with actual email
-    // { email: 'ga@example.com', role: 'General Affairs' },   // Replace with actual GA email
-  ];
+  const resend = new Resend(process.env.RESEND_API_KEY);
+
+  // Test email - will be sent from Resend's test domain
+  const testEmail = 'delivered@resend.dev'; // Resend test email that always succeeds
 
   console.log('\n📧 Attempting to send test email...\n');
 
   try {
-    // Verify transporter configuration
-    await transporter.verify();
-    console.log('✅ SMTP connection verified successfully!\n');
-
-    // Send test email
-    const info = await transporter.sendMail({
-      from: `"PT IMM - General Affairs" <${process.env.SMTP_USER}>`,
-      to: testRecipients.map(r => r.email).join(', '),
+    const { data, error } = await resend.emails.send({
+      from: 'PRM-IMM <onboarding@resend.dev>',
+      to: testEmail,
       subject: '🧪 Test Email - PRM-IMM System',
       html: `
         <!DOCTYPE html>
@@ -49,13 +43,12 @@ async function testEmail() {
             <div class="header">
               <h1>🧪 Test Email</h1>
             </div>
-            <p class="success">✅ Email berhasil terkirim!</p>
-            <p>Ini adalah email test dari sistem <strong>PRM-IMM (Meeting Room Management)</strong>.</p>
-            <p>Jika Anda menerima email ini, berarti konfigurasi SMTP sudah benar.</p>
+            <p class="success">✅ Email configuration is working!</p>
+            <p>This is a test email from the PRM-IMM Meeting Room Management System.</p>
+            <p>If you received this email, your Resend configuration is working correctly.</p>
             <hr>
             <p style="color: #666; font-size: 12px;">
-              Dikirim dari: ${process.env.SMTP_USER}<br>
-              Waktu: ${new Date().toLocaleString('id-ID')}
+              Sent at: ${new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })} WIB
             </p>
           </div>
         </body>
@@ -63,26 +56,22 @@ async function testEmail() {
       `,
     });
 
+    if (error) {
+      throw new Error(error.message);
+    }
+
     console.log('✅ Test email sent successfully!');
-    console.log('📬 Message ID:', info.messageId);
-    console.log('📨 Recipients:', testRecipients.map(r => r.email).join(', '));
+    console.log(`   Message ID: ${data?.id}`);
+    console.log(`   To: ${testEmail}`);
+    console.log('\n🎉 Resend is configured correctly!');
     
   } catch (error: any) {
-    console.error('❌ Email test failed!\n');
-    console.error('Error:', error.message);
-    
-    if (error.code === 'EAUTH') {
-      console.log('\n💡 Kemungkinan penyebab:');
-      console.log('1. Password salah atau bukan App Password');
-      console.log('2. 2-Step Verification belum diaktifkan di Gmail');
-      console.log('3. App Password belum dibuat\n');
-      console.log('Cara membuat App Password:');
-      console.log('1. Buka https://myaccount.google.com/security');
-      console.log('2. Aktifkan 2-Step Verification');
-      console.log('3. Kembali ke Security > App passwords');
-      console.log('4. Generate password untuk "Mail"');
-      console.log('5. Update SMTP_PASS di .env dengan App Password tersebut');
-    }
+    console.error('\n❌ Failed to send test email');
+    console.error(`   Error: ${error.message}`);
+    console.log('\nPossible issues:');
+    console.log('1. Invalid API key - check your RESEND_API_KEY');
+    console.log('2. API key permissions - ensure it has send access');
+    process.exit(1);
   }
 }
 

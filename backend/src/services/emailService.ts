@@ -1,104 +1,22 @@
-import nodemailer from 'nodemailer';
-import { google } from 'googleapis';
+import { Resend } from 'resend';
 import { db } from '../db';
 import { emailLogs } from '../db/schema';
 
-// Gmail API OAuth2 configuration
-const OAuth2 = google.auth.OAuth2;
+// Initialize Resend client
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
-// Create OAuth2 client for Gmail API
-const createOAuth2Client = () => {
-  const clientId = process.env.GMAIL_CLIENT_ID;
-  const clientSecret = process.env.GMAIL_CLIENT_SECRET;
-  const refreshToken = process.env.GMAIL_REFRESH_TOKEN;
-  
-  if (!clientId || !clientSecret || !refreshToken) {
-    return null;
-  }
-  
-  const oauth2Client = new OAuth2(
-    clientId,
-    clientSecret,
-    'https://developers.google.com/oauthplayground'
-  );
-  
-  oauth2Client.setCredentials({
-    refresh_token: refreshToken,
-  });
-  
-  return oauth2Client;
-};
-
-// Create transporter - prefer Gmail API OAuth2, fallback to SMTP
-const createTransporter = async () => {
-  const oauth2Client = createOAuth2Client();
-  const userEmail = process.env.SMTP_USER || 'Generalaffairsimm@gmail.com';
-  
-  // Try Gmail API with OAuth2 first
-  if (oauth2Client) {
-    try {
-      const accessToken = await oauth2Client.getAccessToken();
-      
-      if (accessToken.token) {
-        console.log('🔐 Using Gmail API with OAuth2');
-        return nodemailer.createTransport({
-          service: 'gmail',
-          auth: {
-            type: 'OAuth2',
-            user: userEmail,
-            clientId: process.env.GMAIL_CLIENT_ID,
-            clientSecret: process.env.GMAIL_CLIENT_SECRET,
-            refreshToken: process.env.GMAIL_REFRESH_TOKEN,
-            accessToken: accessToken.token,
-          },
-        });
-      }
-    } catch (err: any) {
-      console.error('⚠️ OAuth2 failed, falling back to SMTP:', err.message);
-    }
-  }
-  
-  // Fallback to SMTP
-  console.log('📧 Using SMTP with App Password');
-  return nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 587,
-    secure: false,
-    auth: {
-      user: userEmail,
-      pass: process.env.SMTP_PASS,
-    },
-    connectionTimeout: 10000,
-    greetingTimeout: 10000,
-    socketTimeout: 15000,
-  });
-};
-
-// Initialize transporter
-let transporter: nodemailer.Transporter | null = null;
-
-const initTransporter = async () => {
-  try {
-    transporter = await createTransporter();
-    await transporter.verify();
-    console.log('✅ Email transporter ready');
+// Check if email service is configured
+const isEmailConfigured = () => {
+  if (resend) {
+    console.log('✅ Email service ready (Resend)');
     return true;
-  } catch (err: any) {
-    console.error('❌ Email transporter error:', err.message);
-    return false;
   }
+  console.warn('⚠️ RESEND_API_KEY not set - emails will be disabled');
+  return false;
 };
 
-// Initialize on startup
-initTransporter();
-
-// Get transporter (reinitialize if needed for OAuth2 token refresh)
-const getTransporter = async () => {
-  if (!transporter) {
-    await initTransporter();
-  }
-  return transporter;
-};
+// Log on startup
+isEmailConfigured();
 
 /**
  * Log email to database
@@ -157,6 +75,11 @@ export async function sendMeetingRequestNotification(
   meetingData: MeetingRequestEmailData,
   approvers: ApproverInfo[]
 ): Promise<void> {
+  if (!resend) {
+    console.log('⚠️ Email skipped - RESEND_API_KEY not configured');
+    return;
+  }
+
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
   const loginUrl = `${frontendUrl}/login?redirect=/monitoring`;
 
@@ -242,11 +165,6 @@ export async function sendMeetingRequestNotification(
       border-radius: 8px;
       font-weight: 600;
       font-size: 16px;
-      transition: transform 0.2s, box-shadow 0.2s;
-    }
-    .btn:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4);
     }
     .footer {
       background-color: #f8fafc;
@@ -343,53 +261,53 @@ export async function sendMeetingRequestNotification(
     
     <div class="footer">
       <p>Email ini dikirim secara otomatis oleh sistem PRM-IMM.</p>
-      <p>© ${new Date().getFullYear()} PT Banpu Indo - Meeting Room Management System</p>
+      <p>© ${new Date().getFullYear()} PT Indominco Mandiri - Meeting Room Management System</p>
     </div>
   </div>
 </body>
 </html>
     `;
 
-    const mailOptions = {
-      from: `"PRM-IMM System" <${process.env.SMTP_USER || 'Generalaffairsimm@gmail.com'}>`,
-      to: approver.email,
-      subject: `PRM-${meetingData.nama}-${meetingData.agenda}`,
-      html: htmlContent,
-    };
+    const subject = `PRM-${meetingData.nama}-${meetingData.agenda}`;
 
     try {
-      console.log(`📧 Sending email...`);
-      console.log(`   From: ${mailOptions.from}`);
-      console.log(`   To: ${mailOptions.to}`);
-      console.log(`   Subject: ${mailOptions.subject}`);
+      console.log(`📧 Sending email via Resend...`);
+      console.log(`   To: ${approver.email}`);
+      console.log(`   Subject: ${subject}`);
       console.log(`   Role: ${roleLabel}`);
       
-      const emailTransporter = await getTransporter();
-      if (!emailTransporter) throw new Error('Email transporter not initialized');
-      const info = await emailTransporter.sendMail(mailOptions);
+      const { data, error } = await resend.emails.send({
+        from: 'PRM-IMM <noreply@resend.dev>',
+        to: approver.email,
+        subject: subject,
+        html: htmlContent,
+      });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
       console.log(`✅ Email sent successfully!`);
-      console.log(`   Message ID: ${info.messageId}`);
-      console.log(`   Response: ${info.response}`);
+      console.log(`   Message ID: ${data?.id}`);
       
       // Log successful email to database
       await logEmail({
         toEmail: approver.email,
         toName: approver.fullName,
-        subject: mailOptions.subject,
+        subject: subject,
         emailType: 'meeting_request',
         status: 'sent',
-        messageId: info.messageId,
+        messageId: data?.id,
       });
     } catch (error: any) {
       console.error(`❌ Failed to send email to ${approver.email}`);
-      console.error(`   Error Code: ${error.code || 'N/A'}`);
-      console.error(`   Error Message: ${error.message}`);
+      console.error(`   Error: ${error.message}`);
       
       // Log failed email to database
       await logEmail({
         toEmail: approver.email,
         toName: approver.fullName,
-        subject: mailOptions.subject,
+        subject: subject,
         emailType: 'meeting_request',
         status: 'failed',
         errorMessage: error.message,
@@ -410,6 +328,11 @@ export async function sendApprovalNotification(
   action: 'approved' | 'rejected',
   notes?: string
 ): Promise<void> {
+  if (!resend) {
+    console.log('⚠️ Email skipped - RESEND_API_KEY not configured');
+    return;
+  }
+
   const roleLabel = approverRole === 'head_dept' ? 'Head Department' : 'General Affairs';
   const actionLabel = action === 'approved' ? 'Disetujui' : 'Ditolak';
   const actionColor = action === 'approved' ? '#10b981' : '#ef4444';
@@ -522,52 +445,53 @@ export async function sendApprovalNotification(
     
     <div class="footer">
       <p>Email ini dikirim secara otomatis oleh sistem PRM-IMM.</p>
-      <p>© ${new Date().getFullYear()} PT Banpu Indo - Meeting Room Management System</p>
+      <p>© ${new Date().getFullYear()} PT Indominco Mandiri - Meeting Room Management System</p>
     </div>
   </div>
 </body>
 </html>
   `;
 
-  const mailOptions = {
-    from: `"PRM-IMM System" <${process.env.SMTP_USER || 'Generalaffairsimm@gmail.com'}>`,
-    to: requesterEmail,
-    subject: `PRM-${meetingData.nama}-${meetingData.agenda} (${actionLabel})`,
-    html: htmlContent,
-  };
+  const subject = `PRM-${meetingData.nama}-${meetingData.agenda} (${actionLabel})`;
 
   try {
-    console.log(`📧 Sending approval notification...`);
+    console.log(`📧 Sending approval notification via Resend...`);
     console.log(`   To: ${requesterEmail}`);
-    console.log(`   Subject: ${mailOptions.subject}`);
+    console.log(`   Subject: ${subject}`);
     console.log(`   Action: ${action}`);
     
-    const emailTransporter = await getTransporter();
-    if (!emailTransporter) throw new Error('Email transporter not initialized');
-    const info = await emailTransporter.sendMail(mailOptions);
+    const { data, error } = await resend.emails.send({
+      from: 'PRM-IMM <noreply@resend.dev>',
+      to: requesterEmail,
+      subject: subject,
+      html: htmlContent,
+    });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
     console.log(`✅ Approval notification sent successfully!`);
-    console.log(`   Message ID: ${info.messageId}`);
-    console.log(`   Response: ${info.response}`);
+    console.log(`   Message ID: ${data?.id}`);
     
     // Log successful email to database
     await logEmail({
       toEmail: requesterEmail,
       toName: requesterName,
-      subject: mailOptions.subject,
+      subject: subject,
       emailType: 'approval_notification',
       status: 'sent',
-      messageId: info.messageId,
+      messageId: data?.id,
     });
   } catch (error: any) {
     console.error(`❌ Failed to send approval notification to ${requesterEmail}`);
-    console.error(`   Error Code: ${error.code || 'N/A'}`);
-    console.error(`   Error Message: ${error.message}`);
+    console.error(`   Error: ${error.message}`);
     
     // Log failed email to database
     await logEmail({
       toEmail: requesterEmail,
       toName: requesterName,
-      subject: mailOptions.subject,
+      subject: subject,
       emailType: 'approval_notification',
       status: 'failed',
       errorMessage: error.message,
@@ -576,28 +500,16 @@ export async function sendApprovalNotification(
 }
 
 /**
- * Verify SMTP connection
+ * Verify email service connection
  */
 export async function verifyEmailConnection(): Promise<boolean> {
-  try {
-    console.log('📧 Verifying email connection...');
-    console.log(`   SMTP User: ${process.env.SMTP_USER || 'Generalaffairsimm@gmail.com'}`);
-    console.log(`   OAuth2: ${process.env.GMAIL_CLIENT_ID ? 'Configured' : 'Not configured'}`);
-    console.log(`   SMTP Pass: ${process.env.SMTP_PASS ? '****' + process.env.SMTP_PASS.slice(-4) : 'Not set'}`);
-    
-    const emailTransporter = await getTransporter();
-    if (!emailTransporter) {
-      throw new Error('Email transporter not initialized');
-    }
-    await emailTransporter.verify();
-    console.log('✅ Email service connected successfully');
-    return true;
-  } catch (error: any) {
-    console.error('❌ Email service connection failed');
-    console.error(`   Error Code: ${error.code || 'N/A'}`);
-    console.error(`   Error Message: ${error.message}`);
+  if (!resend) {
+    console.log('⚠️ Email service not configured - RESEND_API_KEY missing');
     return false;
   }
+  
+  console.log('✅ Resend email service configured');
+  return true;
 }
 
 export default {
