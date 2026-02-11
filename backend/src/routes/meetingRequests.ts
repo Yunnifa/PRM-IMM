@@ -2,7 +2,6 @@ import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi';
 import { db } from '../db';
 import { meetingRequests, meetingRequestHistory, users } from '../db/schema';
 import { eq, desc, and, or } from 'drizzle-orm';
-import { sendMeetingRequestNotification, sendApprovalNotification } from '../services/emailService';
 import { notifyNewRequest, notifyGAAfterHeadApproval, type TelegramApprover, type TelegramMeetingData } from '../services/telegramService';
 
 const app = new OpenAPIHono();
@@ -300,17 +299,6 @@ app.openapi(createMeetingRequestRoute, async (c) => {
 
       await notifyNewRequest(meetingData, telegramApprovers);
       console.log(`📱 Telegram notifications sent to ${telegramApprovers.length} Head Dept approvers`);
-
-      // Also send email to all approvers (Head Dept + GA)
-      const emailApprovers = [
-        ...headDeptUsers.map(h => ({ email: h.email, fullName: h.fullName, role: 'head_dept' as const })),
-        ...gaUsers.map(g => ({ email: g.email, fullName: g.fullName, role: 'ga' as const })),
-      ];
-
-      if (emailApprovers.length > 0) {
-        await sendMeetingRequestNotification(meetingData, emailApprovers);
-        console.log(`📧 Email notifications sent to ${emailApprovers.length} approvers`);
-      }
     } catch (notifError) {
       console.error('❌ Failed to send notifications:', notifError);
     }

@@ -22,9 +22,6 @@ import apiLoggerMiddleware from './middleware/apiLogger';
 // Import database sync
 import { syncSchema } from './db/syncSchema';
 
-// Import email service
-import { verifyEmailConnection } from './services/emailService';
-
 // Import telegram service
 import { verifyTelegramBot } from './services/telegramService';
 
@@ -118,16 +115,6 @@ async function startServer() {
     console.error('⚠️ Schema sync failed (non-fatal):', error);
   }
   
-  try {
-    // Verify email connection (with timeout)
-    const emailTimeout = new Promise<boolean>((_, reject) => 
-      setTimeout(() => reject(new Error('Email verification timeout')), 10000)
-    );
-    await Promise.race([verifyEmailConnection(), emailTimeout]);
-  } catch (error) {
-    console.error('⚠️ Email verification failed (non-fatal):', error);
-  }
-
   try {
     await verifyTelegramBot();
   } catch (error) {
