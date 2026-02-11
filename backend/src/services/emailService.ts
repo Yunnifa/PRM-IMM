@@ -1,29 +1,104 @@
 import nodemailer from 'nodemailer';
+import { google } from 'googleapis';
 import { db } from '../db';
 import { emailLogs } from '../db/schema';
 
-// Configure the email transporter using Gmail SMTP
-// Using explicit host/port instead of 'service' for better compatibility with cloud providers
-const transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 587,
-  secure: false, // true for 465, false for 587 (STARTTLS)
-  auth: {
-    user: process.env.SMTP_USER || 'Generalaffairsimm@gmail.com',
-    pass: process.env.SMTP_PASS, // Must be App Password (16 chars) when 2FA is enabled
-  },
-  connectionTimeout: 10000, // 10 seconds
-  greetingTimeout: 10000,
-  socketTimeout: 15000,
-});
+// Gmail API OAuth2 configuration
+const OAuth2 = google.auth.OAuth2;
 
-// Verify transporter on startup (non-blocking)
-transporter.verify()
-  .then(() => console.log('✅ Email transporter ready (smtp.gmail.com:587)'))
-  .catch((err) => {
-    console.error('❌ Email transporter error:', err.message);
-    console.error('   Hint: Check SMTP_PASS env var and ensure it is the 16-char App Password');
+// Create OAuth2 client for Gmail API
+const createOAuth2Client = () => {
+  const clientId = process.env.GMAIL_CLIENT_ID;
+  const clientSecret = process.env.GMAIL_CLIENT_SECRET;
+  const refreshToken = process.env.GMAIL_REFRESH_TOKEN;
+  
+  if (!clientId || !clientSecret || !refreshToken) {
+    return null;
+  }
+  
+  const oauth2Client = new OAuth2(
+    clientId,
+    clientSecret,
+    'https://developers.google.com/oauthplayground'
+  );
+  
+  oauth2Client.setCredentials({
+    refresh_token: refreshToken,
   });
+  
+  return oauth2Client;
+};
+
+// Create transporter - prefer Gmail API OAuth2, fallback to SMTP
+const createTransporter = async () => {
+  const oauth2Client = createOAuth2Client();
+  const userEmail = process.env.SMTP_USER || 'Generalaffairsimm@gmail.com';
+  
+  // Try Gmail API with OAuth2 first
+  if (oauth2Client) {
+    try {
+      const accessToken = await oauth2Client.getAccessToken();
+      
+      if (accessToken.token) {
+        console.log('🔐 Using Gmail API with OAuth2');
+        return nodemailer.createTransport({
+          service: 'gmail',
+          auth: {
+            type: 'OAuth2',
+            user: userEmail,
+            clientId: process.env.GMAIL_CLIENT_ID,
+            clientSecret: process.env.GMAIL_CLIENT_SECRET,
+            refreshToken: process.env.GMAIL_REFRESH_TOKEN,
+            accessToken: accessToken.token,
+          },
+        });
+      }
+    } catch (err: any) {
+      console.error('⚠️ OAuth2 failed, falling back to SMTP:', err.message);
+    }
+  }
+  
+  // Fallback to SMTP
+  console.log('📧 Using SMTP with App Password');
+  return nodemailer.createTransport({
+    host: 'smtp.gmail.com',
+    port: 587,
+    secure: false,
+    auth: {
+      user: userEmail,
+      pass: process.env.SMTP_PASS,
+    },
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    socketTimeout: 15000,
+  });
+};
+
+// Initialize transporter
+let transporter: nodemailer.Transporter | null = null;
+
+const initTransporter = async () => {
+  try {
+    transporter = await createTransporter();
+    await transporter.verify();
+    console.log('✅ Email transporter ready');
+    return true;
+  } catch (err: any) {
+    console.error('❌ Email transporter error:', err.message);
+    return false;
+  }
+};
+
+// Initialize on startup
+initTransporter();
+
+// Get transporter (reinitialize if needed for OAuth2 token refresh)
+const getTransporter = async () => {
+  if (!transporter) {
+    await initTransporter();
+  }
+  return transporter;
+};
 
 /**
  * Log email to database
@@ -289,7 +364,9 @@ export async function sendMeetingRequestNotification(
       console.log(`   Subject: ${mailOptions.subject}`);
       console.log(`   Role: ${roleLabel}`);
       
-      const info = await transporter.sendMail(mailOptions);
+      const emailTransporter = await getTransporter();
+      if (!emailTransporter) throw new Error('Email transporter not initialized');
+      const info = await emailTransporter.sendMail(mailOptions);
       console.log(`✅ Email sent successfully!`);
       console.log(`   Message ID: ${info.messageId}`);
       console.log(`   Response: ${info.response}`);
@@ -465,7 +542,9 @@ export async function sendApprovalNotification(
     console.log(`   Subject: ${mailOptions.subject}`);
     console.log(`   Action: ${action}`);
     
-    const info = await transporter.sendMail(mailOptions);
+    const emailTransporter = await getTransporter();
+    if (!emailTransporter) throw new Error('Email transporter not initialized');
+    const info = await emailTransporter.sendMail(mailOptions);
     console.log(`✅ Approval notification sent successfully!`);
     console.log(`   Message ID: ${info.messageId}`);
     console.log(`   Response: ${info.response}`);
@@ -503,9 +582,14 @@ export async function verifyEmailConnection(): Promise<boolean> {
   try {
     console.log('📧 Verifying email connection...');
     console.log(`   SMTP User: ${process.env.SMTP_USER || 'Generalaffairsimm@gmail.com'}`);
-    console.log(`   SMTP Pass: ${process.env.SMTP_PASS ? '****' + process.env.SMTP_PASS.slice(-4) : 'Not set (using default)'}`);
+    console.log(`   OAuth2: ${process.env.GMAIL_CLIENT_ID ? 'Configured' : 'Not configured'}`);
+    console.log(`   SMTP Pass: ${process.env.SMTP_PASS ? '****' + process.env.SMTP_PASS.slice(-4) : 'Not set'}`);
     
-    await transporter.verify();
+    const emailTransporter = await getTransporter();
+    if (!emailTransporter) {
+      throw new Error('Email transporter not initialized');
+    }
+    await emailTransporter.verify();
     console.log('✅ Email service connected successfully');
     return true;
   } catch (error: any) {
