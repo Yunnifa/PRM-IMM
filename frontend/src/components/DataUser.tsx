@@ -501,7 +501,7 @@ const DataUser = () => {
     return (
       <div className="p-6 flex justify-center items-center min-h-screen">
         <div className="text-center">
-          <img src="/Loader-1.gif" alt="Loading" className="h-16 w-16 mx-auto" />
+          <img src="/Loader-2.gif" alt="Loading" className="h-16 w-16 mx-auto" />
           <p className="mt-4 text-gray-600">Loading...</p>
         </div>
       </div>

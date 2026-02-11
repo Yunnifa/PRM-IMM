@@ -438,7 +438,7 @@ const Calendar = () => {
       {loadingMaster && (
         <div className="absolute inset-0 bg-white/75 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="flex flex-col items-center">
-            <img src="/Loader-1.gif" alt="Loading" className="h-16 w-16" />
+            <img src="/Loader-2.gif" alt="Loading" className="h-16 w-16" />
             <span className="mt-2 text-gray-600">Memuat data...</span>
           </div>
         </div>
@@ -1098,7 +1098,7 @@ const Calendar = () => {
                 >
                   {submitting ? (
                     <>
-                      <img src="/Loader-1.gif" alt="Loading" className="h-5 w-5" />
+                      <img src="/Loader-2.gif" alt="Loading" className="h-5 w-5" />
                       <span>Mengirim...</span>
                     </>
                   ) : (

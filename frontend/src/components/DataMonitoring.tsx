@@ -356,7 +356,7 @@ const DataMonitoring = () => {
       {/* Loading State */}
       {loading && (
         <div className="flex flex-col justify-center items-center py-12">
-          <img src="/Loader-1.gif" alt="Loading" className="h-16 w-16" />
+          <img src="/Loader-2.gif" alt="Loading" className="h-16 w-16" />
           <span className="mt-2 text-gray-600">Loading data...</span>
         </div>
       )}
