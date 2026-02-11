@@ -15,6 +15,7 @@ import roomsRoutes from './routes/rooms';
 import facilitiesRoutes from './routes/facilities';
 import meetingRequestsRoutes from './routes/meetingRequests';
 import emailLogsRoutes from './routes/emailLogs';
+import telegramRoutes from './routes/telegram';
 
 // Import middleware
 import apiLoggerMiddleware from './middleware/apiLogger';
@@ -63,6 +64,7 @@ app.route('/api/rooms', roomsRoutes);
 app.route('/api/facilities', facilitiesRoutes);
 app.route('/api/meeting-requests', meetingRequestsRoutes);
 app.route('/api/email-logs', emailLogsRoutes);
+app.route('/api/telegram', telegramRoutes);
 
 // Swagger UI
 app.get('/swagger', swaggerUI({
