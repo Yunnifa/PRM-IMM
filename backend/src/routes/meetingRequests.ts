@@ -157,11 +157,69 @@ const createMeetingRequestRoute = createRoute({
       },
       description: 'Meeting request created',
     },
+    409: {
+      content: {
+        'application/json': {
+          schema: z.object({
+            success: z.boolean(),
+            message: z.string(),
+          }),
+        },
+      },
+      description: 'Time conflict - room already booked',
+    },
   },
 });
 
 app.openapi(createMeetingRequestRoute, async (c) => {
   const data = c.req.valid('json');
+
+  // Check for time conflicts (same room, same date, overlapping time, not rejected)
+  const existingBookings = await db.select()
+    .from(meetingRequests)
+    .where(
+      and(
+        eq(meetingRequests.namaRuangan, data.namaRuangan),
+        eq(meetingRequests.tanggal, data.tanggal),
+        // Exclude rejected bookings
+        or(
+          and(
+            eq(meetingRequests.headDept, 'pending'),
+          ),
+          and(
+            eq(meetingRequests.headDept, 'approved'),
+            eq(meetingRequests.ga, 'pending'),
+          ),
+          and(
+            eq(meetingRequests.headDept, 'approved'),
+            eq(meetingRequests.ga, 'approved'),
+          )
+        )
+      )
+    );
+
+  // Convert time to minutes for comparison
+  const toMinutes = (time: string): number => {
+    const [h, m] = time.split(':').map(Number);
+    return h * 60 + m;
+  };
+
+  const newStart = toMinutes(data.jamMulai);
+  const newEnd = toMinutes(data.jamBerakhir);
+
+  // Check for overlap
+  const hasConflict = existingBookings.some(booking => {
+    const existingStart = toMinutes(booking.jamMulai);
+    const existingEnd = toMinutes(booking.jamBerakhir);
+    return newStart < existingEnd && newEnd > existingStart;
+  });
+
+  if (hasConflict) {
+    return c.json({
+      success: false,
+      message: `Ruangan ${data.namaRuangan} sudah dibooking pada waktu tersebut. Silakan pilih waktu lain.`,
+    }, 409);
+  }
 
   // Generate request ID
   const count = await db.select().from(meetingRequests);
@@ -185,73 +243,80 @@ app.openapi(createMeetingRequestRoute, async (c) => {
     status: 'submitted',
   });
 
-  // Send email notifications to Head Dept and GA
-  try {
-    // Find Head Department user for this specific department only
-    const headDeptUsers = await db.select({
-      email: users.email,
-      fullName: users.fullName,
-    })
-    .from(users)
-    .where(
-      and(
-        eq(users.role, 'head_dept'),
-        eq(users.department, data.department), // Only Head Dept of same department
-        eq(users.isActive, 1)
-      )
-    );
+  // Send email notifications to Head Dept and GA (fire-and-forget for faster response)
+  (async () => {
+    try {
+      // Find Head Department user for this specific department only
+      const headDeptUsers = await db.select({
+        email: users.email,
+        fullName: users.fullName,
+      })
+      .from(users)
+      .where(
+        and(
+          eq(users.role, 'head_dept'),
+          eq(users.department, data.department), // Only Head Dept of same department
+          eq(users.isActive, 1)
+        )
+      );
 
-    // Find General Affair users (GA can approve all departments)
-    const gaUsers = await db.select({
-      email: users.email,
-      fullName: users.fullName,
-    })
-    .from(users)
-    .where(
-      and(
-        eq(users.role, 'ga'),
-        eq(users.isActive, 1)
-      )
-    );
+      // Find General Affair users (GA can approve all departments)
+      const gaUsers = await db.select({
+        email: users.email,
+        fullName: users.fullName,
+      })
+      .from(users)
+      .where(
+        and(
+          eq(users.role, 'ga'),
+          eq(users.isActive, 1)
+        )
+      );
 
-    // Prepare approvers list
-    const approvers: { email: string; fullName: string; role: 'head_dept' | 'ga' }[] = [];
-    
-    headDeptUsers.forEach(h => {
-      approvers.push({ email: h.email, fullName: h.fullName, role: 'head_dept' });
-    });
-    
-    gaUsers.forEach(g => {
-      approvers.push({ email: g.email, fullName: g.fullName, role: 'ga' });
-    });
+      // Prepare approvers list
+      const approvers: { email: string; fullName: string; role: 'head_dept' | 'ga' }[] = [];
+      
+      headDeptUsers.forEach(h => {
+        approvers.push({ email: h.email, fullName: h.fullName, role: 'head_dept' });
+      });
+      
+      gaUsers.forEach(g => {
+        approvers.push({ email: g.email, fullName: g.fullName, role: 'ga' });
+      });
 
-    if (approvers.length > 0) {
-      await sendMeetingRequestNotification({
-        requestId: newRequest.requestId,
-        nama: newRequest.nama,
-        whatsapp: newRequest.whatsapp,
-        department: newRequest.department,
-        tanggal: newRequest.tanggal,
-        hari: newRequest.hari,
-        jamMulai: newRequest.jamMulai,
-        jamBerakhir: newRequest.jamBerakhir,
-        jumlahPeserta: newRequest.jumlahPeserta,
-        agenda: newRequest.agenda,
-        namaRuangan: newRequest.namaRuangan,
-        fasilitas: newRequest.fasilitas,
-      }, approvers);
-      console.log(`📧 Email notifications sent to ${approvers.length} approvers`);
-    } else {
-      console.log('⚠️ No approvers found for email notification');
+      if (approvers.length > 0) {
+        await sendMeetingRequestNotification({
+          requestId: newRequest.requestId,
+          nama: newRequest.nama,
+          whatsapp: newRequest.whatsapp,
+          department: newRequest.department,
+          tanggal: newRequest.tanggal,
+          hari: newRequest.hari,
+          jamMulai: newRequest.jamMulai,
+          jamBerakhir: newRequest.jamBerakhir,
+          jumlahPeserta: newRequest.jumlahPeserta,
+          agenda: newRequest.agenda,
+          namaRuangan: newRequest.namaRuangan,
+          fasilitas: newRequest.fasilitas,
+        }, approvers);
+        console.log(`📧 Email notifications sent to ${approvers.length} approvers`);
+      } else {
+        console.log('⚠️ No approvers found for email notification');
+      }
+    } catch (emailError) {
+      console.error('❌ Failed to send email notifications:', emailError);
     }
-  } catch (emailError) {
-    console.error('❌ Failed to send email notifications:', emailError);
-    // Don't fail the request if email fails
-  }
+  })();
 
-  const history = await db.select()
-    .from(meetingRequestHistory)
-    .where(eq(meetingRequestHistory.meetingRequestId, newRequest.id));
+  // Return initial history directly (no need to query again)
+  const history = [{
+    timestamp: new Date().toISOString(),
+    action: 'Pengajuan ruang meeting',
+    by: data.nama,
+    whatsapp: data.whatsapp,
+    status: 'submitted' as const,
+    notes: null,
+  }];
 
   return c.json({
     success: true,
@@ -271,14 +336,7 @@ app.openapi(createMeetingRequestRoute, async (c) => {
       fasilitas: newRequest.fasilitas,
       headDept: newRequest.headDept,
       ga: newRequest.ga,
-      history: history.map(h => ({
-        timestamp: h.timestamp?.toISOString() || '',
-        action: h.action,
-        by: h.by,
-        whatsapp: h.whatsapp,
-        status: h.status,
-        notes: h.notes,
-      })),
+      history: history,
       createdAt: newRequest.createdAt?.toISOString() || '',
     },
   }, 201);

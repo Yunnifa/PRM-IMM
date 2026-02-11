@@ -292,37 +292,6 @@ const Calendar = () => {
     return !roomsWithoutPesertaRequired.some(name => normalizedName.includes(name));
   };
 
-  // Check apakah ruangan sudah dibooking pada jam tertentu (pending + approved)
-  const isRoomBooked = (roomName: string, jamMulai: string, jamBerakhir: string): boolean => {
-    if (!selectedDate || !jamMulai || !jamBerakhir) return false;
-    if (overrideMode) return false; // GA override mode bypasses check
-    
-    const dateStr = formatDate(selectedDate);
-    // Include both pending and approved bookings (not rejected)
-    const bookedMeetings = meetings.filter(m => 
-      m.tanggal === dateStr && 
-      m.namaRuangan === roomName &&
-      !(m.headDept === 'rejected' || m.ga === 'rejected')
-    );
-    
-    // Convert time strings to minutes for comparison
-    const toMinutes = (time: string): number => {
-      const [h, m] = time.split(':').map(Number);
-      return h * 60 + m;
-    };
-    
-    const newStart = toMinutes(jamMulai);
-    const newEnd = toMinutes(jamBerakhir);
-    
-    // Check for time overlap
-    return bookedMeetings.some(m => {
-      const existingStart = toMinutes(m.jamMulai);
-      const existingEnd = toMinutes(m.jamBerakhir);
-      // Check overlap: new meeting starts before existing ends AND new meeting ends after existing starts
-      return newStart < existingEnd && newEnd > existingStart;
-    });
-  };
-
   // Get booking info for a room (pending + approved)
   const getRoomBookingInfo = (roomName: string): { isBooked: boolean; bookedTimes: string[] } => {
     if (!selectedDate) return { isBooked: false, bookedTimes: [] };
@@ -889,31 +858,22 @@ const Calendar = () => {
                     value={newMeeting.ruangan}
                     onChange={(e) => {
                       const selectedRoom = e.target.value;
-                      // Check if room is booked (skip if override mode)
-                      if (!overrideMode && selectedRoom && isRoomBooked(selectedRoom, newMeeting.jamMulai, newMeeting.jamBerakhir)) {
-                        alert('Ruangan ini sudah dibooking pada jam yang dipilih. Silakan pilih ruangan lain atau ubah jam meeting.');
-                        return;
-                      }
-                      setNewMeeting({...newMeeting, ruangan: selectedRoom});
+                      // Reset jam when room changes (so user picks available times)
+                      setNewMeeting({...newMeeting, ruangan: selectedRoom, jamMulai: '', jamBerakhir: ''});
                     }}
                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none transition-colors"
                   >
                     <option value="">Pilih Ruangan</option>
                     {rooms.map(room => {
                       const bookingInfo = getRoomBookingInfo(room.name);
-                      const isBooked = bookingInfo.isBooked;
+                      const hasBookings = bookingInfo.isBooked;
                       const hybridText = room.isHybrid === 1 ? ' - Hybrid' : '';
                       return (
                         <option 
                           key={room.id} 
                           value={room.name}
-                          disabled={isBooked}
-                          style={{ 
-                            color: isBooked ? '#dc2626' : 'inherit',
-                            backgroundColor: isBooked ? '#fef2f2' : 'inherit'
-                          }}
                         >
-                          {room.name}{hybridText} (Kapasitas: {room.capacity} orang){isBooked ? ` - (Sudah dibooking: ${bookingInfo.bookedTimes.join(', ')})` : ''}
+                          {room.name}{hybridText} (Kapasitas: {room.capacity} orang){hasBookings ? ` - (Terisi: ${bookingInfo.bookedTimes.join(', ')})` : ''}
                         </option>
                       );
                     })}
