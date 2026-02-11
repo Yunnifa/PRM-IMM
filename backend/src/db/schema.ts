@@ -17,6 +17,7 @@ export const users = pgTable('users', {
   whatsapp: varchar('whatsapp', { length: 20 }).notNull().unique(), // Nomor telepon untuk login
   birthDate: varchar('birth_date', { length: 10 }), // Format: YYYY-MM-DD (untuk generate password)
   department: varchar('department', { length: 100 }),
+  telegramChatId: varchar('telegram_chat_id', { length: 100 }),
   role: roleEnum('role').notNull().default('user'),
   isActive: integer('is_active').notNull().default(1), // 1 = active, 0 = inactive (soft delete)
   createdAt: timestamp('created_at').defaultNow().notNull(),

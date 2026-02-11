@@ -1,7 +1,12 @@
 import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 
-const Sidebar = () => {
+interface SidebarProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
   const navigate = useNavigate();
   const [isDataMasterOpen, setIsDataMasterOpen] = useState(false);
 
@@ -11,8 +16,32 @@ const Sidebar = () => {
     navigate('/');
   };
 
+  const handleNavClick = () => {
+    // Close sidebar on mobile after navigation
+    if (window.innerWidth < 1024) {
+      onClose();
+    }
+  };
+
   return (
-    <div className="w-64 bg-indigo-900 text-white h-screen flex flex-col">
+    <>
+      {/* Overlay for mobile */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          onClick={onClose}
+        />
+      )}
+
+      {/* Sidebar */}
+      <div
+        className={`
+          fixed inset-y-0 left-0 z-50 w-64 bg-indigo-900 text-white flex flex-col
+          transform transition-transform duration-300 ease-in-out
+          lg:relative lg:translate-x-0
+          ${isOpen ? 'translate-x-0' : '-translate-x-full'}
+        `}
+      >
       {/* Header */}
       <div className="p-4 border-b border-indigo-700">
         <img 
@@ -29,6 +58,7 @@ const Sidebar = () => {
         {/* Data Monitoring */}
         <NavLink
           to="/admin/monitoring"
+          onClick={handleNavClick}
           className={({ isActive }) =>
             `block px-4 py-3 rounded-lg transition-colors ${
               isActive
@@ -72,6 +102,7 @@ const Sidebar = () => {
             <div className="ml-4 mt-2 space-y-1">
               <NavLink
                 to="/admin/department"
+                onClick={handleNavClick}
                 className={({ isActive }) =>
                   `block px-4 py-2 rounded-lg text-sm transition-colors ${
                     isActive
@@ -84,6 +115,7 @@ const Sidebar = () => {
               </NavLink>
               <NavLink
                 to="/admin/user"
+                onClick={handleNavClick}
                 className={({ isActive }) =>
                   `block px-4 py-2 rounded-lg text-sm transition-colors ${
                     isActive
@@ -96,6 +128,7 @@ const Sidebar = () => {
               </NavLink>
               <NavLink
                 to="/admin/fasilitas"
+                onClick={handleNavClick}
                 className={({ isActive }) =>
                   `block px-4 py-2 rounded-lg text-sm transition-colors ${
                     isActive
@@ -108,6 +141,7 @@ const Sidebar = () => {
               </NavLink>
               <NavLink
                 to="/admin/ruangan"
+                onClick={handleNavClick}
                 className={({ isActive }) =>
                   `block px-4 py-2 rounded-lg text-sm transition-colors ${
                     isActive
@@ -125,6 +159,7 @@ const Sidebar = () => {
         {/* Calendar Link */}
         <NavLink
           to="/admin/calendar"
+          onClick={handleNavClick}
           className={({ isActive }) =>
             `block px-4 py-3 rounded-lg transition-colors ${
               isActive
@@ -154,7 +189,8 @@ const Sidebar = () => {
           <span className="font-medium">Logout</span>
         </button>
       </div>
-    </div>
+      </div>
+    </>
   );
 };
 

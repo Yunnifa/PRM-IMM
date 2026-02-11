@@ -25,6 +25,9 @@ import { syncSchema } from './db/syncSchema';
 // Import email service
 import { verifyEmailConnection } from './services/emailService';
 
+// Import telegram service
+import { verifyTelegramBot } from './services/telegramService';
+
 const app = new OpenAPIHono();
 
 // Get frontend URL from env or use defaults
@@ -123,6 +126,12 @@ async function startServer() {
     await Promise.race([verifyEmailConnection(), emailTimeout]);
   } catch (error) {
     console.error('⚠️ Email verification failed (non-fatal):', error);
+  }
+
+  try {
+    await verifyTelegramBot();
+  } catch (error) {
+    console.error('⚠️ Telegram bot verification failed (non-fatal):', error);
   }
   
   console.log('✅ Server initialization complete!');

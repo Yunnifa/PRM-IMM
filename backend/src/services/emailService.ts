@@ -1,16 +1,16 @@
 import nodemailer from 'nodemailer';
+import type SMTPTransport from 'nodemailer/lib/smtp-transport';
 import { db } from '../db';
 import { emailLogs } from '../db/schema';
 
 // Configure Office 365 SMTP transporter
-const transporter = nodemailer.createTransport({
+const smtpOptions: SMTPTransport.Options = {
   host: process.env.SMTP_HOST || 'smtp.office365.com',
   port: 587,
-  secure: false, // WAJIB false untuk port 587
-  family: 4, // Force IPv4 — Railway IPv6 routing causes ENETUNREACH
+  secure: false,
   auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
+    user: process.env.SMTP_USER || '',
+    pass: process.env.SMTP_PASS || '',
   },
   tls: {
     rejectUnauthorized: false,
@@ -21,7 +21,12 @@ const transporter = nodemailer.createTransport({
   socketTimeout: 20000,
   debug: true,
   logger: true,
-});
+};
+
+// Force IPv4 to avoid ENETUNREACH on Railway
+(smtpOptions as any).family = 4;
+
+const transporter = nodemailer.createTransport(smtpOptions);
 
 // Verify on startup
 transporter.verify()

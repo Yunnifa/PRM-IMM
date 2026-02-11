@@ -191,6 +191,7 @@ export async function syncSchema(): Promise<void> {
     const alterStatements = [
       `ALTER TABLE users ADD COLUMN IF NOT EXISTS birth_date VARCHAR(10)`,
       `ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active INTEGER DEFAULT 1`,
+      `ALTER TABLE users ADD COLUMN IF NOT EXISTS telegram_chat_id VARCHAR(100)`,
       `ALTER TABLE departments ADD COLUMN IF NOT EXISTS is_active INTEGER DEFAULT 1`,
       `ALTER TABLE rooms ADD COLUMN IF NOT EXISTS is_hybrid INTEGER DEFAULT 0`,
       // Make user_id nullable for guest users

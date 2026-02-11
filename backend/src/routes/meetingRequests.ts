@@ -3,6 +3,7 @@ import { db } from '../db';
 import { meetingRequests, meetingRequestHistory, users } from '../db/schema';
 import { eq, desc, and, or } from 'drizzle-orm';
 import { sendMeetingRequestNotification, sendApprovalNotification } from '../services/emailService';
+import { notifyNewRequest, notifyGAAfterHeadApproval, type TelegramApprover, type TelegramMeetingData } from '../services/telegramService';
 
 const app = new OpenAPIHono();
 
@@ -243,19 +244,20 @@ app.openapi(createMeetingRequestRoute, async (c) => {
     status: 'submitted',
   });
 
-  // Send email notifications to Head Dept and GA (fire-and-forget for faster response)
+  // Send notifications (fire-and-forget for faster response)
   (async () => {
     try {
       // Find Head Department user for this specific department only
       const headDeptUsers = await db.select({
         email: users.email,
         fullName: users.fullName,
+        telegramChatId: users.telegramChatId,
       })
       .from(users)
       .where(
         and(
           eq(users.role, 'head_dept'),
-          eq(users.department, data.department), // Only Head Dept of same department
+          eq(users.department, data.department),
           eq(users.isActive, 1)
         )
       );
@@ -264,6 +266,7 @@ app.openapi(createMeetingRequestRoute, async (c) => {
       const gaUsers = await db.select({
         email: users.email,
         fullName: users.fullName,
+        telegramChatId: users.telegramChatId,
       })
       .from(users)
       .where(
@@ -273,38 +276,43 @@ app.openapi(createMeetingRequestRoute, async (c) => {
         )
       );
 
-      // Prepare approvers list
-      const approvers: { email: string; fullName: string; role: 'head_dept' | 'ga' }[] = [];
-      
-      headDeptUsers.forEach(h => {
-        approvers.push({ email: h.email, fullName: h.fullName, role: 'head_dept' });
-      });
-      
-      gaUsers.forEach(g => {
-        approvers.push({ email: g.email, fullName: g.fullName, role: 'ga' });
-      });
+      const meetingData: TelegramMeetingData = {
+        requestId: newRequest.requestId,
+        nama: newRequest.nama,
+        whatsapp: newRequest.whatsapp,
+        department: newRequest.department,
+        tanggal: newRequest.tanggal,
+        hari: newRequest.hari,
+        jamMulai: newRequest.jamMulai,
+        jamBerakhir: newRequest.jamBerakhir,
+        jumlahPeserta: newRequest.jumlahPeserta,
+        agenda: newRequest.agenda,
+        namaRuangan: newRequest.namaRuangan,
+        fasilitas: newRequest.fasilitas,
+      };
 
-      if (approvers.length > 0) {
-        await sendMeetingRequestNotification({
-          requestId: newRequest.requestId,
-          nama: newRequest.nama,
-          whatsapp: newRequest.whatsapp,
-          department: newRequest.department,
-          tanggal: newRequest.tanggal,
-          hari: newRequest.hari,
-          jamMulai: newRequest.jamMulai,
-          jamBerakhir: newRequest.jamBerakhir,
-          jumlahPeserta: newRequest.jumlahPeserta,
-          agenda: newRequest.agenda,
-          namaRuangan: newRequest.namaRuangan,
-          fasilitas: newRequest.fasilitas,
-        }, approvers);
-        console.log(`📧 Email notifications sent to ${approvers.length} approvers`);
-      } else {
-        console.log('⚠️ No approvers found for email notification');
+      // Send Telegram to Head Dept only (GA notified after Head Dept approves)
+      const telegramApprovers: TelegramApprover[] = headDeptUsers.map(h => ({
+        fullName: h.fullName,
+        telegramChatId: h.telegramChatId,
+        role: 'head_dept' as const,
+      }));
+
+      await notifyNewRequest(meetingData, telegramApprovers);
+      console.log(`📱 Telegram notifications sent to ${telegramApprovers.length} Head Dept approvers`);
+
+      // Also send email to all approvers (Head Dept + GA)
+      const emailApprovers = [
+        ...headDeptUsers.map(h => ({ email: h.email, fullName: h.fullName, role: 'head_dept' as const })),
+        ...gaUsers.map(g => ({ email: g.email, fullName: g.fullName, role: 'ga' as const })),
+      ];
+
+      if (emailApprovers.length > 0) {
+        await sendMeetingRequestNotification(meetingData, emailApprovers);
+        console.log(`📧 Email notifications sent to ${emailApprovers.length} approvers`);
       }
-    } catch (emailError) {
-      console.error('❌ Failed to send email notifications:', emailError);
+    } catch (notifError) {
+      console.error('❌ Failed to send notifications:', notifError);
     }
   })();
 
@@ -423,24 +431,29 @@ app.openapi(updateApprovalRoute, async (c) => {
     notes: notes || null,
   });
 
-  // Send email notification to the requester about approval/rejection
-  try {
-    // Find the requester's email
-    const [requester] = await db.select({
-      email: users.email,
-      fullName: users.fullName,
-    })
-    .from(users)
-    .where(eq(users.id, updated.userId));
+  // Send Telegram to GA when Head Dept approves (fire-and-forget)
+  if (type === 'approveHeadDept') {
+    (async () => {
+      try {
+        const gaUsers = await db.select({
+          fullName: users.fullName,
+          telegramChatId: users.telegramChatId,
+        })
+        .from(users)
+        .where(
+          and(
+            eq(users.role, 'ga'),
+            eq(users.isActive, 1)
+          )
+        );
 
-    if (requester) {
-      const approverRole = type.includes('HeadDept') ? 'head_dept' : 'ga';
-      const action = type.includes('approve') ? 'approved' : 'rejected';
-      
-      await sendApprovalNotification(
-        requester.email,
-        requester.fullName,
-        {
+        const gaApprovers: TelegramApprover[] = gaUsers.map(g => ({
+          fullName: g.fullName,
+          telegramChatId: g.telegramChatId,
+          role: 'ga' as const,
+        }));
+
+        await notifyGAAfterHeadApproval({
           requestId: updated.requestId,
           nama: updated.nama,
           whatsapp: updated.whatsapp,
@@ -453,16 +466,12 @@ app.openapi(updateApprovalRoute, async (c) => {
           agenda: updated.agenda,
           namaRuangan: updated.namaRuangan,
           fasilitas: updated.fasilitas,
-        },
-        approverRole,
-        action,
-        notes
-      );
-      console.log(`📧 Approval notification sent to ${requester.email}`);
-    }
-  } catch (emailError) {
-    console.error('❌ Failed to send approval notification:', emailError);
-    // Don't fail the request if email fails
+        }, gaApprovers);
+        console.log(`📱 Telegram sent to ${gaApprovers.length} GA approvers`);
+      } catch (err) {
+        console.error('❌ Failed to send Telegram to GA:', err);
+      }
+    })();
   }
 
   const history = await db.select()
