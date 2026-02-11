@@ -3,18 +3,27 @@ import { db } from '../db';
 import { emailLogs } from '../db/schema';
 
 // Configure the email transporter using Gmail SMTP
+// Using explicit host/port instead of 'service' for better compatibility with cloud providers
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  host: 'smtp.gmail.com',
+  port: 587,
+  secure: false, // true for 465, false for 587 (STARTTLS)
   auth: {
     user: process.env.SMTP_USER || 'Generalaffairsimm@gmail.com',
     pass: process.env.SMTP_PASS, // Must be App Password (16 chars) when 2FA is enabled
   },
+  connectionTimeout: 10000, // 10 seconds
+  greetingTimeout: 10000,
+  socketTimeout: 15000,
 });
 
-// Verify transporter on startup
+// Verify transporter on startup (non-blocking)
 transporter.verify()
-  .then(() => console.log('✅ Email transporter ready'))
-  .catch((err) => console.error('❌ Email transporter error:', err.message));
+  .then(() => console.log('✅ Email transporter ready (smtp.gmail.com:587)'))
+  .catch((err) => {
+    console.error('❌ Email transporter error:', err.message);
+    console.error('   Hint: Check SMTP_PASS env var and ensure it is the 16-char App Password');
+  });
 
 /**
  * Log email to database
