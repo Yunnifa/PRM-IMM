@@ -5,17 +5,22 @@ import { emailLogs } from '../db/schema';
 // Configure Office 365 SMTP transporter
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || 'smtp.office365.com',
-  port: parseInt(process.env.SMTP_PORT || '587'),
-  secure: false, // false for port 587 (STARTTLS)
+  port: 587,
+  secure: false, // WAJIB false untuk port 587
   family: 4, // Force IPv4 — Railway IPv6 routing causes ENETUNREACH
   auth: {
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
   },
   tls: {
-    ciphers: 'SSLv3',
     rejectUnauthorized: false,
+    minVersion: 'TLSv1.2',
   },
+  connectionTimeout: 20000,
+  greetingTimeout: 20000,
+  socketTimeout: 20000,
+  debug: true,
+  logger: true,
 });
 
 // Verify on startup
