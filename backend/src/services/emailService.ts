@@ -277,7 +277,7 @@ export async function sendMeetingRequestNotification(
       console.log(`   Role: ${roleLabel}`);
       
       const { data, error } = await resend.emails.send({
-        from: 'General Affairs IMM <ga_imm@banpuindo.co.id>',
+        from: 'General Affairs IMM <ga_imm@resend.dev>',
         to: approver.email,
         subject: subject,
         html: htmlContent,
@@ -461,7 +461,7 @@ export async function sendApprovalNotification(
     console.log(`   Action: ${action}`);
     
     const { data, error } = await resend.emails.send({
-      from: 'General Affairs IMM <ga_imm@banpuindo.co.id>',
+      from: 'General Affairs IMM <ga_imm@resend.dev>',
       to: requesterEmail,
       subject: subject,
       html: htmlContent,
