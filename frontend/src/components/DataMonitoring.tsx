@@ -473,7 +473,7 @@ const DataMonitoring = () => {
       </div>
 
       {/* Search and Export */}
-      <div className="bg-white rounded-lg shadow-md p-4 mb-6">
+      <div className="bg-white rounded-lg shadow-md p-4 mb-6 relative z-40">
         <div className="flex flex-col md:flex-row gap-4 items-center">
           {/* Search */}
           <div className="flex-1 w-full">
@@ -505,7 +505,7 @@ const DataMonitoring = () => {
 
               {/* Filter Dropdown */}
               {showFilterDropdown && (
-                <div className="absolute left-0 mt-2 w-64 bg-white rounded-lg shadow-lg z-10 border border-gray-200 p-4">
+                <div className="absolute left-0 mt-2 w-64 bg-white rounded-lg shadow-lg z-50 border border-gray-200 p-4">
                   <div className="mb-3">
                     <label className="block text-sm font-semibold text-gray-700 mb-1">Department</label>
                     <select
@@ -583,7 +583,7 @@ const DataMonitoring = () => {
 
               {/* Dropdown Menu */}
               {showExportDropdown && (
-                <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg z-10 border border-gray-200">
+                <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg z-50 border border-gray-200">
                   <button
                     onClick={exportToExcel}
                     className="w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center gap-2 rounded-t-lg"

@@ -522,7 +522,7 @@ const DataUser = () => {
     <div className="p-6">
 
       {/* Toolbar */}
-      <div className="bg-white rounded-lg shadow-md p-4 mb-6">
+      <div className="bg-white rounded-lg shadow-md p-4 mb-6 relative z-40">
         <div className="flex flex-col md:flex-row gap-4 items-center">
           <button
             onClick={() => setShowAddModal(true)}
@@ -566,7 +566,7 @@ const DataUser = () => {
                 Export
               </button>
               {showExportDropdown && (
-                <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg z-10 border border-gray-200">
+                <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg z-50 border border-gray-200">
                   <button onClick={exportToExcel} className="w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center gap-2 rounded-t-lg">
                     <span className="text-gray-700">Export to Excel</span>
                   </button>
