@@ -109,16 +109,18 @@ async function startServer() {
   console.log(`📚 Swagger UI: ${apiBaseUrl}/swagger`);
   console.log(`📖 OpenAPI Spec: ${apiBaseUrl}/api/openapi.json`);
   
-  // Then do async initialization in background (non-blocking)
+  // Then do async initialization in background
   try {
-    // Auto-sync database schema
+    // Auto-sync database schema (REQUIRED - will crash if DB unavailable)
     await syncSchema();
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error('⚠️ Schema sync warning (non-fatal):', errorMessage);
-    // Don't crash the server, just log the warning
+    console.error('❌ FATAL: Database unavailable -', errorMessage);
+    console.error('💡 Check DATABASE_URL and ensure database is running');
+    process.exit(1); // Exit with error code - deployment will fail
   }
   
+  // Telegram bot is optional - won't crash if it fails
   try {
     await verifyTelegramBot();
   } catch (error) {
