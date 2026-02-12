@@ -1,7 +1,7 @@
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi';
 import { db } from '../db';
 import { users } from '../db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
@@ -96,10 +96,13 @@ app.openapi(loginRoute, async (c) => {
   try {
     const { whatsapp, password } = c.req.valid('json');
 
-    const [user] = await db.select().from(users).where(eq(users.whatsapp, whatsapp));
+    // Only allow login for active users (is_active = 1)
+    const [user] = await db.select().from(users).where(
+      and(eq(users.whatsapp, whatsapp), eq(users.isActive, 1))
+    );
 
     if (!user) {
-      return c.json({ success: false, message: 'Nomor telepon tidak terdaftar' }, 401);
+      return c.json({ success: false, message: 'Nomor telepon tidak terdaftar atau akun tidak aktif' }, 401);
     }
 
     const isValidPassword = await bcrypt.compare(password, user.password);
@@ -188,21 +191,34 @@ app.openapi(registerRoute, async (c) => {
   try {
     const data = c.req.valid('json');
 
-    // Check if user exists
-    const [existingUser] = await db.select().from(users).where(eq(users.username, data.username));
-    if (existingUser) {
+    // Check if ACTIVE user exists (is_active = 1)
+    const [existingActiveUser] = await db.select().from(users).where(
+      and(eq(users.username, data.username), eq(users.isActive, 1))
+    );
+    if (existingActiveUser) {
       return c.json({ success: false, message: 'Username already exists' }, 400);
     }
 
-    const [existingEmail] = await db.select().from(users).where(eq(users.email, data.email));
-    if (existingEmail) {
+    // Check if email exists in ACTIVE users
+    const [existingActiveEmail] = await db.select().from(users).where(
+      and(eq(users.email, data.email), eq(users.isActive, 1))
+    );
+    if (existingActiveEmail) {
       return c.json({ success: false, message: 'Email already exists' }, 400);
     }
 
-    const [existingWhatsapp] = await db.select().from(users).where(eq(users.whatsapp, data.whatsapp));
-    if (existingWhatsapp) {
+    // Check if whatsapp exists in ACTIVE users
+    const [existingActiveWhatsapp] = await db.select().from(users).where(
+      and(eq(users.whatsapp, data.whatsapp), eq(users.isActive, 1))
+    );
+    if (existingActiveWhatsapp) {
       return c.json({ success: false, message: 'Nomor telepon sudah terdaftar' }, 400);
     }
+
+    // Check if there's a soft-deleted user with same email
+    const [softDeletedUser] = await db.select().from(users).where(
+      and(eq(users.email, data.email), eq(users.isActive, 0))
+    );
 
     // Generate password from first name + birth date (DDMMYYYY)
     // Example: "John Doe" + "1990-05-15" = "john15051990"
@@ -213,17 +229,37 @@ app.openapi(registerRoute, async (c) => {
     // Hash password
     const hashedPassword = await bcrypt.hash(rawPassword, 10);
 
-    // Create user
-    const [newUser] = await db.insert(users).values({
-      username: data.username,
-      email: data.email,
-      password: hashedPassword,
-      fullName: data.fullName,
-      whatsapp: data.whatsapp,
-      birthDate: data.birthDate,
-      department: data.department || null,
-      role: data.role || 'user',
-    }).returning();
+    let newUser;
+
+    if (softDeletedUser) {
+      // Reactivate and update soft-deleted user
+      [newUser] = await db.update(users)
+        .set({
+          username: data.username,
+          password: hashedPassword,
+          fullName: data.fullName,
+          whatsapp: data.whatsapp,
+          birthDate: data.birthDate,
+          department: data.department || null,
+          role: data.role || 'user',
+          isActive: 1, // Reactivate
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, softDeletedUser.id))
+        .returning();
+    } else {
+      // Create new user
+      [newUser] = await db.insert(users).values({
+        username: data.username,
+        email: data.email,
+        password: hashedPassword,
+        fullName: data.fullName,
+        whatsapp: data.whatsapp,
+        birthDate: data.birthDate,
+        department: data.department || null,
+        role: data.role || 'user',
+      }).returning();
+    }
 
     const token = jwt.sign(
       { id: newUser.id, username: newUser.username, role: newUser.role },
