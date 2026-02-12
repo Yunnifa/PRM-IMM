@@ -2,68 +2,119 @@ import { db } from './index';
 import { sql } from 'drizzle-orm';
 
 /**
+ * Wait helper with retry logic
+ */
+async function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * Execute query with timeout
+ */
+async function executeWithTimeout<T>(promise: Promise<T>, timeoutMs: number, operation: string): Promise<T> {
+  const timeoutPromise = new Promise<T>((_, reject) => {
+    setTimeout(() => reject(new Error(`${operation} timeout after ${timeoutMs}ms`)), timeoutMs);
+  });
+  return Promise.race([promise, timeoutPromise]);
+}
+
+/**
+ * Retry database connection with exponential backoff
+ */
+async function retryDatabaseConnection(maxRetries = 5): Promise<boolean> {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      await executeWithTimeout(
+        db.execute(sql`SELECT 1`),
+        10000,
+        'Database ping'
+      );
+      console.log('✅ Database connection established');
+      return true;
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      const waitTime = Math.min(1000 * Math.pow(2, i), 5000); // Max 5 seconds
+      console.log(`⏳ Connection attempt ${i + 1}/${maxRetries} failed: ${errorMsg}`);
+      if (i < maxRetries - 1) {
+        console.log(`   Retrying in ${waitTime}ms...`);
+        await sleep(waitTime);
+      }
+    }
+  }
+  return false;
+}
+
+/**
  * Auto-sync database schema on startup
  * This ensures all tables and columns exist
  */
 export async function syncSchema(): Promise<void> {
   console.log('🔄 Auto-syncing database schema...');
   
-  try {
-    // Create/update role enum
-    await db.execute(sql`
+  // Try to connect with retry logic
+  const connected = await retryDatabaseConnection(5);
+  if (!connected) {
+    throw new Error('Failed to connect to database after 5 retries');
+  }
+  
+  const operations = [
+    { name: 'Create role enum', query: sql`
       DO $$ BEGIN
         CREATE TYPE role AS ENUM ('admin', 'head_dept', 'ga', 'user');
       EXCEPTION
         WHEN duplicate_object THEN null;
       END $$;
-    `);
-
-    // Add new values to existing enum if they don't exist
-    await db.execute(sql`
+    ` },
+    { name: 'Add head_dept to role enum', query: sql`
       DO $$ BEGIN
         ALTER TYPE role ADD VALUE IF NOT EXISTS 'head_dept';
       EXCEPTION
         WHEN others THEN null;
       END $$;
-    `);
-
-    await db.execute(sql`
+    ` },
+    { name: 'Add ga to role enum', query: sql`
       DO $$ BEGIN
         ALTER TYPE role ADD VALUE IF NOT EXISTS 'ga';
       EXCEPTION
         WHEN others THEN null;
       END $$;
-    `);
-
-    // Update existing users with old roles to new roles
-    await db.execute(sql`
-      UPDATE users SET role = 'head_dept' WHERE role = 'head_ga';
-    `).catch(() => {});
-    
-    await db.execute(sql`
-      UPDATE users SET role = 'ga' WHERE role = 'head_os';
-    `).catch(() => {});
-
-    // Create approval_status enum
-    await db.execute(sql`
+    ` },
+    { name: 'Create approval_status enum', query: sql`
       DO $$ BEGIN
         CREATE TYPE approval_status AS ENUM ('pending', 'approved', 'rejected');
       EXCEPTION
         WHEN duplicate_object THEN null;
       END $$;
-    `);
-
-    // Create history_status enum
-    await db.execute(sql`
+    ` },
+    { name: 'Create history_status enum', query: sql`
       DO $$ BEGIN
         CREATE TYPE history_status AS ENUM ('submitted', 'approved', 'rejected');
       EXCEPTION
         WHEN duplicate_object THEN null;
       END $$;
-    `);
+    ` },
+    { name: 'Create email_status enum', query: sql`
+      DO $$ BEGIN
+        CREATE TYPE email_status AS ENUM ('sent', 'failed');
+      EXCEPTION
+        WHEN duplicate_object THEN null;
+      END $$;
+    ` },
+  ];
 
-    // Create tables if not exists
-    await db.execute(sql`
+  // Execute operations with timeout
+  for (const op of operations) {
+    try {
+      await executeWithTimeout(db.execute(op.query), 5000, op.name);
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.log(`⚠️  ${op.name} skipped: ${errorMsg}`);
+    }
+  }
+
+  // Create tables (wrapped with timeout and error handling)
+  const tableOperations = [
+    { name: 'users table', query: sql`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
         username VARCHAR(100) NOT NULL UNIQUE,
@@ -75,12 +126,12 @@ export async function syncSchema(): Promise<void> {
         department VARCHAR(100),
         role role NOT NULL DEFAULT 'user',
         is_active INTEGER NOT NULL DEFAULT 1,
+        telegram_chat_id VARCHAR(100),
         created_at TIMESTAMP DEFAULT NOW() NOT NULL,
         updated_at TIMESTAMP DEFAULT NOW() NOT NULL
       );
-    `);
-
-    await db.execute(sql`
+    ` },
+    { name: 'departments table', query: sql`
       CREATE TABLE IF NOT EXISTS departments (
         id SERIAL PRIMARY KEY,
         name VARCHAR(100) NOT NULL UNIQUE,
@@ -89,9 +140,8 @@ export async function syncSchema(): Promise<void> {
         created_at TIMESTAMP DEFAULT NOW() NOT NULL,
         updated_at TIMESTAMP DEFAULT NOW() NOT NULL
       );
-    `);
-
-    await db.execute(sql`
+    ` },
+    { name: 'rooms table', query: sql`
       CREATE TABLE IF NOT EXISTS rooms (
         id SERIAL PRIMARY KEY,
         name VARCHAR(100) NOT NULL UNIQUE,
@@ -103,9 +153,8 @@ export async function syncSchema(): Promise<void> {
         created_at TIMESTAMP DEFAULT NOW() NOT NULL,
         updated_at TIMESTAMP DEFAULT NOW() NOT NULL
       );
-    `);
-
-    await db.execute(sql`
+    ` },
+    { name: 'facilities table', query: sql`
       CREATE TABLE IF NOT EXISTS facilities (
         id SERIAL PRIMARY KEY,
         name VARCHAR(100) NOT NULL UNIQUE,
@@ -114,22 +163,20 @@ export async function syncSchema(): Promise<void> {
         created_at TIMESTAMP DEFAULT NOW() NOT NULL,
         updated_at TIMESTAMP DEFAULT NOW() NOT NULL
       );
-    `);
-
-    await db.execute(sql`
+    ` },
+    { name: 'room_facilities table', query: sql`
       CREATE TABLE IF NOT EXISTS room_facilities (
         id SERIAL PRIMARY KEY,
         room_id INTEGER NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
         facility_id INTEGER NOT NULL REFERENCES facilities(id) ON DELETE CASCADE,
         created_at TIMESTAMP DEFAULT NOW() NOT NULL
       );
-    `);
-
-    await db.execute(sql`
+    ` },
+    { name: 'meeting_requests table', query: sql`
       CREATE TABLE IF NOT EXISTS meeting_requests (
         id SERIAL PRIMARY KEY,
         request_id VARCHAR(50) NOT NULL UNIQUE,
-        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
         nama VARCHAR(255) NOT NULL,
         whatsapp VARCHAR(20) NOT NULL,
         department VARCHAR(100) NOT NULL,
@@ -146,9 +193,8 @@ export async function syncSchema(): Promise<void> {
         created_at TIMESTAMP DEFAULT NOW() NOT NULL,
         updated_at TIMESTAMP DEFAULT NOW() NOT NULL
       );
-    `);
-
-    await db.execute(sql`
+    ` },
+    { name: 'meeting_request_history table', query: sql`
       CREATE TABLE IF NOT EXISTS meeting_request_history (
         id SERIAL PRIMARY KEY,
         meeting_request_id INTEGER NOT NULL REFERENCES meeting_requests(id) ON DELETE CASCADE,
@@ -160,19 +206,8 @@ export async function syncSchema(): Promise<void> {
         notes TEXT,
         created_at TIMESTAMP DEFAULT NOW() NOT NULL
       );
-    `);
-
-    // Create email_status enum
-    await db.execute(sql`
-      DO $$ BEGIN
-        CREATE TYPE email_status AS ENUM ('sent', 'failed');
-      EXCEPTION
-        WHEN duplicate_object THEN null;
-      END $$;
-    `);
-
-    // Create email_logs table
-    await db.execute(sql`
+    ` },
+    { name: 'email_logs table', query: sql`
       CREATE TABLE IF NOT EXISTS email_logs (
         id SERIAL PRIMARY KEY,
         to_email VARCHAR(255) NOT NULL,
@@ -185,30 +220,32 @@ export async function syncSchema(): Promise<void> {
         error_message TEXT,
         sent_at TIMESTAMP DEFAULT NOW() NOT NULL
       );
-    `);
+    ` },
+    { name: 'api_logs table', query: sql`
+      CREATE TABLE IF NOT EXISTS api_logs (
+        id SERIAL PRIMARY KEY,
+        method VARCHAR(10) NOT NULL,
+        path VARCHAR(500) NOT NULL,
+        status_code INTEGER NOT NULL,
+        request_body TEXT,
+        user_agent VARCHAR(500),
+        ip_address VARCHAR(50),
+        user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        duration INTEGER NOT NULL,
+        error_message TEXT,
+        created_at TIMESTAMP DEFAULT NOW() NOT NULL
+      );
+    ` },
+  ];
 
-    // Add missing columns to existing tables (safe migration)
-    const alterStatements = [
-      `ALTER TABLE users ADD COLUMN IF NOT EXISTS birth_date VARCHAR(10)`,
-      `ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active INTEGER DEFAULT 1`,
-      `ALTER TABLE users ADD COLUMN IF NOT EXISTS telegram_chat_id VARCHAR(100)`,
-      `ALTER TABLE departments ADD COLUMN IF NOT EXISTS is_active INTEGER DEFAULT 1`,
-      `ALTER TABLE rooms ADD COLUMN IF NOT EXISTS is_hybrid INTEGER DEFAULT 0`,
-      // Make user_id nullable for guest users
-      `ALTER TABLE meeting_requests ALTER COLUMN user_id DROP NOT NULL`,
-    ];
-
-    for (const stmt of alterStatements) {
-      try {
-        await db.execute(sql.raw(stmt));
-      } catch (e) {
-        // Column might already exist, ignore error
-      }
+  for (const op of tableOperations) {
+    try {
+      await executeWithTimeout(db.execute(op.query), 10000, op.name);
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.log(`⚠️  ${op.name} skipped: ${errorMsg}`);
     }
-
-    console.log('✅ Database schema synced successfully!');
-  } catch (error) {
-    console.error('⚠️ Schema sync warning (non-fatal):', error);
-    // Don't throw - let the app continue even if sync fails
   }
+
+  console.log('✅ Database schema sync completed!');
 }

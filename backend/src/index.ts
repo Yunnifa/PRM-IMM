@@ -114,7 +114,9 @@ async function startServer() {
     // Auto-sync database schema
     await syncSchema();
   } catch (error) {
-    console.error('⚠️ Schema sync failed (non-fatal):', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('⚠️ Schema sync warning (non-fatal):', errorMessage);
+    // Don't crash the server, just log the warning
   }
   
   try {

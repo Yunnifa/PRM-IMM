@@ -104,7 +104,7 @@ function maskSensitiveData(data: any): any {
 }
 
 /**
- * Save log to database
+ * Save log to database with timeout
  */
 async function saveLog(logData: {
   method: string;
@@ -118,7 +118,12 @@ async function saveLog(logData: {
   errorMessage: string | null;
 }) {
   try {
-    await db.insert(apiLogs).values({
+    // Add timeout to prevent hanging - fail fast if DB unavailable
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Database write timeout')), 5000)
+    );
+    
+    const insertPromise = db.insert(apiLogs).values({
       method: logData.method,
       path: logData.path,
       statusCode: logData.statusCode,
@@ -129,9 +134,12 @@ async function saveLog(logData: {
       duration: logData.duration,
       errorMessage: logData.errorMessage,
     });
+    
+    await Promise.race([insertPromise, timeoutPromise]);
   } catch (error) {
-    // Don't throw, just log to console
-    console.error('[API Logger] Database error:', error);
+    // Don't throw, just log to console - API should work even if logging fails
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.error('[API Logger] Database error:', errorMsg);
   }
 }
 
