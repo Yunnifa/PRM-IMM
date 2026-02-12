@@ -298,41 +298,44 @@ const DataUser = () => {
       const departmentNames = departments.map(d => d.name);
       const roleOptions = ['user', 'admin', 'head_dept', 'ga'];
 
-      // Add data validation for 100 rows
-      for (let i = 2; i <= 102; i++) {
-        // Date validation for Tanggal Lahir (Column C)
-        worksheet.getCell(`C${i}`).dataValidation = {
-          type: 'date',
-          operator: 'between',
-          showErrorMessage: true,
-          formulae: [new Date(1950, 0, 1), new Date()],
-          errorStyle: 'error',
-          errorTitle: 'Invalid Date',
-          error: 'Tanggal lahir harus antara 1950 hingga sekarang. Format: YYYY-MM-DD'
+      // Create a hidden sheet for dropdown values (avoids Excel corruption)
+      const hiddenSheet = workbook.addWorksheet('DropdownData');
+      hiddenSheet.state = 'hidden';
+      
+      // Ensure we have department names
+      const validDeptNames = departmentNames.length > 0 
+        ? departmentNames 
+        : ['IT Department', 'HR Department', 'Finance', 'Marketing'];
+      
+      // Add department list to hidden sheet
+      validDeptNames.forEach((dept, index) => {
+        hiddenSheet.getCell(`A${index + 1}`).value = dept;
+      });
+      
+      // Add role list to hidden sheet
+      roleOptions.forEach((role, index) => {
+        hiddenSheet.getCell(`B${index + 1}`).value = role;
+      });
+
+      // Add data validation for 500 rows
+      for (let i = 2; i <=500; i++) {
+        // Tanggal Lahir - use cell comment instead of validation
+        worksheet.getCell(`C${i}`).note = {
+          texts: [{ text: 'Format: YYYY-MM-DD\\nContoh: 1990-01-15' }]
         };
 
-        // Dropdown for Departemen (Column E)
-        if (departmentNames.length > 0) {
-          worksheet.getCell(`E${i}`).dataValidation = {
-            type: 'list',
-            allowBlank: false,
-            formulae: [`"${departmentNames.join(',')}"`],
-            showErrorMessage: true,
-            errorStyle: 'error',
-            errorTitle: 'Invalid Department',
-            error: 'Pilih departemen dari dropdown'
-          };
-        }
+        // Dropdown for Departemen using hidden sheet reference
+        worksheet.getCell(`E${i}`).dataValidation = {
+          type: 'list',
+          allowBlank: false,
+          formulae: [`DropdownData!$A$1:$A$${validDeptNames.length}`]
+        };
 
-        // Dropdown for Role (Column F)
+        // Dropdown for Role using hidden sheet reference
         worksheet.getCell(`F${i}`).dataValidation = {
           type: 'list',
           allowBlank: false,
-          formulae: [`"${roleOptions.join(',')}"`],
-          showErrorMessage: true,
-          errorStyle: 'error',
-          errorTitle: 'Invalid Role',
-          error: 'Pilih role dari dropdown: user, admin, head_dept, atau ga'
+          formulae: [`DropdownData!$B$1:$B$${roleOptions.length}`]
         };
       }
 
