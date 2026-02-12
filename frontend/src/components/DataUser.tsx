@@ -541,7 +541,9 @@ const DataUser = () => {
               formattedBirthDate = `${excelDate.y}-${String(excelDate.m).padStart(2, '0')}-${String(excelDate.d).padStart(2, '0')}`;
             } else if (tanggalLahir.match(/^\d{2}\/\d{2}\/\d{4}$/)) {
               // Convert DD/MM/YYYY to YYYY-MM-DD
-              const parts = tanggalLahir.split('/');\n              formattedBirthDate = `${parts[2]}-${parts[1]}-${parts[0]}`;\n            } else {
+              const parts = tanggalLahir.split('/');
+              formattedBirthDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
+            } else {
               errors.push({ row: rowNum, message: 'Format tanggal lahir tidak valid (gunakan YYYY-MM-DD)', field: 'Tanggal Lahir' });
               return;
             }
