@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { userService, authService, departmentService } from '../services/apiService';
@@ -248,26 +249,141 @@ const DataUser = () => {
     doc.save(`user-data-${new Date().toISOString().split('T')[0]}.pdf`);
   };
 
-  const downloadTemplate = () => {
-    const template = [
-      { Nama: 'Contoh User', 'Nomor Telepon': '081234567890', Email: 'user@company.com', Department: 'IT Department', Role: 'Staff' },
-      { Nama: 'Contoh Manager', 'Nomor Telepon': '081234567891', Email: 'manager@company.com', Department: 'HR Department', Role: 'Manager' },
-    ];
+  const downloadTemplate = async () => {
+    try {
+      // Create new workbook
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('Data User');
 
-    const ws = XLSX.utils.json_to_sheet(template);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Template User');
-    
-    // Set column widths
-    ws['!cols'] = [
-      { wch: 20 },  // Nama
-      { wch: 15 },  // Nomor Telepon
-      { wch: 25 },  // Email
-      { wch: 20 },  // Department
-      { wch: 15 }   // Role
-    ];
+      // Define columns
+      worksheet.columns = [
+        { header: 'Nama Lengkap', key: 'fullName', width: 25 },
+        { header: 'Nomor Telepon', key: 'whatsapp', width: 18 },
+        { header: 'Tanggal Lahir', key: 'birthDate', width: 15 },
+        { header: 'Email', key: 'email', width: 30 },
+        { header: 'Departemen', key: 'department', width: 25 },
+        { header: 'Role', key: 'role', width: 20 },
+      ];
 
-    XLSX.writeFile(wb, 'Template_User.xlsx');
+      // Style header row
+      worksheet.getRow(1).font = { bold: true, size: 11 };
+      worksheet.getRow(1).fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FF4472C4' }
+      };
+      worksheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      worksheet.getRow(1).alignment = { vertical: 'middle', horizontal: 'center' };
+      worksheet.getRow(1).height = 25;
+
+      // Add example data rows
+      worksheet.addRow({
+        fullName: 'John Doe',
+        whatsapp: '081234567890',
+        birthDate: '1990-01-15',
+        email: 'john.doe@company.com',
+        department: departments.length > 0 ? departments[0].name : 'IT',
+        role: 'user'
+      });
+      worksheet.addRow({
+        fullName: 'Jane Smith',
+        whatsapp: '081234567891',
+        birthDate: '1992-05-20',
+        email: 'jane.smith@company.com',
+        department: departments.length > 1 ? departments[1].name : 'HR',
+        role: 'head_dept'
+      });
+
+      // Get department names for dropdown
+      const departmentNames = departments.map(d => d.name);
+      const roleOptions = ['user', 'admin', 'head_dept', 'ga'];
+
+      // Add data validation for 100 rows
+      for (let i = 2; i <= 102; i++) {
+        // Date validation for Tanggal Lahir (Column C)
+        worksheet.getCell(`C${i}`).dataValidation = {
+          type: 'date',
+          operator: 'between',
+          showErrorMessage: true,
+          formulae: [new Date(1950, 0, 1), new Date()],
+          errorStyle: 'error',
+          errorTitle: 'Invalid Date',
+          error: 'Tanggal lahir harus antara 1950 hingga sekarang. Format: YYYY-MM-DD'
+        };
+
+        // Dropdown for Departemen (Column E)
+        if (departmentNames.length > 0) {
+          worksheet.getCell(`E${i}`).dataValidation = {
+            type: 'list',
+            allowBlank: false,
+            formulae: [`"${departmentNames.join(',')}"`],
+            showErrorMessage: true,
+            errorStyle: 'error',
+            errorTitle: 'Invalid Department',
+            error: 'Pilih departemen dari dropdown'
+          };
+        }
+
+        // Dropdown for Role (Column F)
+        worksheet.getCell(`F${i}`).dataValidation = {
+          type: 'list',
+          allowBlank: false,
+          formulae: [`"${roleOptions.join(',')}"`],
+          showErrorMessage: true,
+          errorStyle: 'error',
+          errorTitle: 'Invalid Role',
+          error: 'Pilih role dari dropdown: user, admin, head_dept, atau ga'
+        };
+      }
+
+      // Add instructions sheet
+      const instructionsSheet = workbook.addWorksheet('Instruksi');
+      instructionsSheet.columns = [
+        { header: 'Kolom', key: 'column', width: 20 },
+        { header: 'Keterangan', key: 'description', width: 60 },
+        { header: 'Wajib?', key: 'required', width: 10 },
+      ];
+
+      instructionsSheet.getRow(1).font = { bold: true };
+      instructionsSheet.getRow(1).fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FF70AD47' }
+      };
+      instructionsSheet.getRow(1).font = { color: { argb: 'FFFFFFFF' } };
+
+      instructionsSheet.addRows([
+        { column: 'Nama Lengkap', description: 'Nama lengkap user', required: 'Ya' },
+        { column: 'Nomor Telepon', description: 'Nomor WhatsApp (10-15 digit angka)', required: 'Ya' },
+        { column: 'Tanggal Lahir', description: 'Format: YYYY-MM-DD (contoh: 1990-01-15)', required: 'Ya' },
+        { column: 'Email', description: 'Email valid dengan format @', required: 'Ya' },
+        { column: 'Departemen', description: 'Pilih dari dropdown (data dari database)', required: 'Ya' },
+        { column: 'Role', description: 'Pilih dari dropdown: user, admin, head_dept, ga', required: 'Ya' },
+      ]);
+
+      instructionsSheet.addRow({});
+      instructionsSheet.addRow({ column: 'Catatan Penting:', description: '', required: '' });
+      instructionsSheet.addRow({ column: '', description: '1. Jangan hapus atau ubah nama kolom header', required: '' });
+      instructionsSheet.addRow({ column: '', description: '2. Pastikan semua field wajib diisi', required: '' });
+      instructionsSheet.addRow({ column: '', description: '3. Nomor telepon harus angka saja tanpa spasi atau karakter lain', required: '' });
+      instructionsSheet.addRow({ column: '', description: '4. Email harus unik (tidak boleh duplikat)', required: '' });
+      instructionsSheet.addRow({ column: '', description: '5. Gunakan dropdown untuk Departemen dan Role agar tidak ada kesalahan input', required: '' });
+
+      // Generate Excel file
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'Template_Import_User.xlsx';
+      link.click();
+      window.URL.revokeObjectURL(url);
+
+      console.log('✅ Template berhasil didownload');
+    } catch (error) {
+      console.error('Error generating template:', error);
+      alert('Gagal membuat template. Silakan coba lagi.');
+    }
   };
 
   const handleImport = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -363,7 +479,7 @@ const DataUser = () => {
         }
 
         const firstRow = jsonData[0];
-        const requiredColumns = ['Nama', 'Nomor Telepon', 'Email', 'Department', 'Role'];
+        const requiredColumns = ['Nama Lengkap', 'Nomor Telepon', 'Tanggal Lahir', 'Email', 'Departemen', 'Role'];
         const hasAllColumns = requiredColumns.every(col => col in firstRow);
 
         if (!hasAllColumns) {
@@ -381,27 +497,65 @@ const DataUser = () => {
 
         const importedUsers: User[] = [];
         const errors: Array<{ row: number; message: string; field?: string }> = [];
+        const validRoles = ['user', 'admin', 'head_dept', 'ga'];
+        const departmentNames = departments.map(d => d.name);
 
         jsonData.forEach((row, index) => {
           const rowNum = index + 2;
-          const nama = row['Nama']?.toString().trim();
+          const namaLengkap = row['Nama Lengkap']?.toString().trim();
           const nomorTelepon = row['Nomor Telepon']?.toString().trim();
+          const tanggalLahir = row['Tanggal Lahir']?.toString().trim();
           const email = row['Email']?.toString().trim();
-          const department = row['Department']?.toString().trim();
-          const role = row['Role']?.toString().trim();
+          const departemen = row['Departemen']?.toString().trim();
+          const role = row['Role']?.toString().trim().toLowerCase();
 
-          if (!nama || !nomorTelepon || !email || !department || !role) {
-            errors.push({ row: rowNum, message: 'Data tidak lengkap', field: !nama ? 'Nama' : !nomorTelepon ? 'Nomor Telepon' : !email ? 'Email' : !department ? 'Department' : 'Role' });
+          // Validasi field wajib
+          if (!namaLengkap || !nomorTelepon || !tanggalLahir || !email || !departemen || !role) {
+            const missingField = !namaLengkap ? 'Nama Lengkap' : 
+                                 !nomorTelepon ? 'Nomor Telepon' : 
+                                 !tanggalLahir ? 'Tanggal Lahir' :
+                                 !email ? 'Email' : 
+                                 !departemen ? 'Departemen' : 'Role';
+            errors.push({ row: rowNum, message: 'Data tidak lengkap', field: missingField });
             return;
           }
 
-          if (!email.includes('@')) {
+          // Validasi format email
+          if (!email.includes('@') || !email.includes('.')) {
             errors.push({ row: rowNum, message: 'Format email tidak valid', field: 'Email' });
             return;
           }
 
-          if (!/^\d{10,15}$/.test(nomorTelepon)) {
+          // Validasi nomor telepon
+          if (!/^\d{10,15}$/.test(nomorTelepon.replace(/\s/g, ''))) {
             errors.push({ row: rowNum, message: 'Nomor telepon harus 10-15 digit angka', field: 'Nomor Telepon' });
+            return;
+          }
+
+          // Validasi tanggal lahir (format YYYY-MM-DD atau DD/MM/YYYY)
+          let formattedBirthDate = tanggalLahir;
+          if (!tanggalLahir.match(/^\d{4}-\d{2}-\d{2}$/)) {
+            // Try to parse Excel date number
+            if (!isNaN(Number(tanggalLahir))) {
+              const excelDate = XLSX.SSF.parse_date_code(Number(tanggalLahir));
+              formattedBirthDate = `${excelDate.y}-${String(excelDate.m).padStart(2, '0')}-${String(excelDate.d).padStart(2, '0')}`;
+            } else if (tanggalLahir.match(/^\d{2}\/\d{2}\/\d{4}$/)) {
+              // Convert DD/MM/YYYY to YYYY-MM-DD
+              const parts = tanggalLahir.split('/');\n              formattedBirthDate = `${parts[2]}-${parts[1]}-${parts[0]}`;\n            } else {
+              errors.push({ row: rowNum, message: 'Format tanggal lahir tidak valid (gunakan YYYY-MM-DD)', field: 'Tanggal Lahir' });
+              return;
+            }
+          }
+
+          // Validasi departemen ada di master data
+          if (!departmentNames.includes(departemen)) {
+            errors.push({ row: rowNum, message: `Departemen "${departemen}" tidak ditemukan di database`, field: 'Departemen' });
+            return;
+          }
+
+          // Validasi role
+          if (!validRoles.includes(role)) {
+            errors.push({ row: rowNum, message: `Role harus salah satu dari: ${validRoles.join(', ')}`, field: 'Role' });
             return;
           }
 
@@ -412,10 +566,10 @@ const DataUser = () => {
             id: newId,
             username: email.split('@')[0], // Auto-generate username from email
             email,
-            fullName: nama,
-            whatsapp: nomorTelepon,
-            birthDate: null,
-            department,
+            fullName: namaLengkap,
+            whatsapp: nomorTelepon.replace(/\s/g, ''),
+            birthDate: formattedBirthDate,
+            department: departemen,
             role,
             createdAt: new Date().toISOString()
           });
@@ -963,12 +1117,14 @@ const DataUser = () => {
                 <h4 className="font-semibold text-blue-900 mb-2">📋 Instruksi Upload</h4>
                 <ul className="text-sm text-blue-800 space-y-1 list-disc list-inside">
                   <li>Download template terlebih dahulu</li>
-                  <li>Isi data sesuai format yang tersedia</li>
-                  <li>Upload file Excel (.xlsx atau .xls)</li>
-                  <li>ID akan digenerate otomatis (USR-1, USR-2, ...)</li>
-                  <li>Email harus valid (mengandung @)</li>
+                  <li>Template sudah dilengkapi dengan dropdown Departemen dan Role</li>
+                  <li>Isi semua kolom wajib: Nama Lengkap, Nomor Telepon, Tanggal Lahir, Email, Departemen, Role</li>
+                  <li>Tanggal Lahir menggunakan format YYYY-MM-DD (contoh: 1990-01-15)</li>
+                  <li>Gunakan dropdown untuk Departemen (data dari database)</li>
+                  <li>Gunakan dropdown untuk Role: user, admin, head_dept, atau ga</li>
+                  <li>Email harus valid dan unik</li>
                   <li>Nomor telepon harus 10-15 digit angka</li>
-                  <li>Data yang error akan dilewati dan dilaporkan</li>
+                  <li>Data yang error akan dilaporkan dengan detail</li>
                 </ul>
               </div>
 
