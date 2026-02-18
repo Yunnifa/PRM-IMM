@@ -1,6 +1,6 @@
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi';
 import { db } from '../db';
-import { users, departments } from '../db/schema';
+import { users } from '../db/schema';
 import { eq, and } from 'drizzle-orm';
 
 const app = new OpenAPIHono();
@@ -53,86 +53,66 @@ async function editMessage(chatId: string | number, messageId: number, text: str
 // ─── Command Handlers ────────────────────────────────────────
 
 async function handleStart(chatId: string | number, firstName: string) {
-  const text =
-    `👋 <b>Selamat datang, ${firstName}!</b>\n\n` +
-    `Saya adalah <b>Bot Notifikasi PRM-IMM</b> 🏢\n` +
-    `Sistem Peminjaman Ruangan Meeting PT IMM.\n\n` +
-    `Untuk menerima notifikasi persetujuan meeting, ` +
-    `silakan hubungkan akun Anda:\n\n` +
-    `👉 Ketik /department untuk memilih departemen Anda`;
-
-  await sendText(chatId, text);
-}
-
-async function handleDepartment(chatId: string | number) {
-  // Fetch active departments from DB
-  const deptList = await db.select({
-    id: departments.id,
-    name: departments.name,
+  // Check if already linked
+  const [alreadyLinked] = await db.select({
+    fullName: users.fullName,
+    role: users.role,
+    department: users.department,
   })
-  .from(departments)
-  .where(eq(departments.isActive, 1));
+  .from(users)
+  .where(eq(users.telegramChatId, String(chatId)));
 
-  if (deptList.length === 0) {
-    await sendText(chatId, '⚠️ Belum ada departemen yang terdaftar di sistem.');
+  if (alreadyLinked) {
+    const roleLabel =
+      alreadyLinked.role === 'head_dept' ? 'Head GA' :
+      alreadyLinked.role === 'ga' ? 'General Affairs' :
+      alreadyLinked.role === 'admin' ? 'Administrator' : 'User';
+
+    await sendText(
+      chatId,
+      `👋 <b>Selamat datang kembali, ${firstName}!</b>\n\n` +
+      `✅ Anda sudah terhubung sebagai:\n` +
+      `👤 <b>${alreadyLinked.fullName}</b>\n` +
+      `🏢 ${alreadyLinked.department || '-'}\n` +
+      `🔑 ${roleLabel}\n\n` +
+      `Anda akan menerima notifikasi meeting otomatis.\n\n` +
+      `📌 /status — Cek status koneksi\n` +
+      `📌 /unlink — Putuskan koneksi`,
+    );
     return;
   }
 
-  // Build inline keyboard — 2 columns
-  const buttons = deptList.map(d => ({
-    text: d.name,
-    callback_data: `dept:${d.id}:${d.name}`,
-  }));
-
-  const keyboard: { text: string; callback_data: string }[][] = [];
-  for (let i = 0; i < buttons.length; i += 2) {
-    keyboard.push(buttons.slice(i, i + 2));
-  }
-
-  await sendText(
-    chatId,
-    '🏢 <b>Pilih Departemen Anda:</b>\n\nSilakan pilih departemen tempat Anda bekerja.',
-    { inline_keyboard: keyboard },
-  );
-}
-
-async function handleDepartmentSelection(
-  chatId: string | number,
-  messageId: number,
-  callbackQueryId: string,
-  deptId: number,
-  deptName: string,
-) {
-  await answerCallback(callbackQueryId, `Departemen: ${deptName}`);
-
-  // Fetch users in this department who are head_dept or ga (approvers)
-  const userList = await db.select({
+  // Fetch GA and Head GA approvers (the only roles that need Telegram notifications)
+  const approverList = await db.select({
     id: users.id,
     fullName: users.fullName,
     role: users.role,
-    username: users.username,
+    department: users.department,
     telegramChatId: users.telegramChatId,
   })
   .from(users)
   .where(
     and(
-      eq(users.department, deptName),
       eq(users.isActive, 1)
     )
   );
 
-  if (userList.length === 0) {
-    await editMessage(
+  // Filter to GA and head_dept roles only
+  const approvers = approverList.filter(u => u.role === 'ga' || u.role === 'head_dept' || u.role === 'admin');
+
+  if (approvers.length === 0) {
+    await sendText(
       chatId,
-      messageId,
-      `⚠️ Tidak ada user terdaftar di departemen <b>${deptName}</b>.`,
+      `👋 <b>Selamat datang, ${firstName}!</b>\n\n` +
+      `Saya adalah <b>Bot Notifikasi PRM-IMM</b> 🏢\n\n` +
+      `⚠️ Belum ada user approver (General Affairs / Head GA) yang terdaftar di sistem.`,
     );
     return;
   }
 
-  // Build inline keyboard with user names
-  const buttons = userList.map(u => {
-    const roleLabel = u.role === 'head_dept' ? '👔 HD' : u.role === 'ga' ? '🏗 GA' : u.role === 'admin' ? '⚙️ Admin' : '👤';
+  // Build inline keyboard with approver names
+  const buttons = approvers.map(u => {
+    const roleLabel = u.role === 'ga' ? '🏗 GA' : u.role === 'head_dept' ? '👔 Head GA' : '⚙️ Admin';
     const linked = u.telegramChatId ? ' ✅' : '';
     return {
       text: `${roleLabel} ${u.fullName}${linked}`,
@@ -142,19 +122,22 @@ async function handleDepartmentSelection(
 
   const keyboard: { text: string; callback_data: string }[][] = [];
   for (let i = 0; i < buttons.length; i += 1) {
-    keyboard.push([buttons[i]]); // 1 per row for readability
+    keyboard.push([buttons[i]]);
   }
 
-  // Add back button
-  keyboard.push([{ text: '⬅️ Kembali ke Departemen', callback_data: 'back:dept' }]);
-
-  await editMessage(
+  await sendText(
     chatId,
-    messageId,
-    `🏢 Departemen: <b>${deptName}</b>\n\n👤 <b>Pilih nama Anda:</b>\n<i>(✅ = sudah terhubung)</i>`,
+    `👋 <b>Selamat datang, ${firstName}!</b>\n\n` +
+    `Saya adalah <b>Bot Notifikasi PRM-IMM</b> 🏢\n` +
+    `Sistem Peminjaman Ruangan Meeting PT IMM.\n\n` +
+    `Untuk menerima notifikasi persetujuan meeting, ` +
+    `silakan pilih nama Anda di bawah:\n\n` +
+    `<i>(✅ = sudah terhubung)</i>`,
     { inline_keyboard: keyboard },
   );
 }
+
+// handleDepartment and handleDepartmentSelection removed — /start now directly shows approvers
 
 async function handleUserSelection(
   chatId: string | number,
@@ -201,7 +184,7 @@ async function handleUserSelection(
   }
 
   const roleLabel =
-    updatedUser.role === 'head_dept' ? 'Head Department' :
+    updatedUser.role === 'head_dept' ? 'Head GA' :
     updatedUser.role === 'ga' ? 'General Affairs' :
     updatedUser.role === 'admin' ? 'Administrator' : 'User';
 
@@ -231,7 +214,7 @@ async function handleStatus(chatId: string | number, telegramChatId: string) {
 
   if (linked) {
     const roleLabel =
-      linked.role === 'head_dept' ? 'Head Department' :
+      linked.role === 'head_dept' ? 'Head GA' :
       linked.role === 'ga' ? 'General Affairs' :
       linked.role === 'admin' ? 'Administrator' : 'User';
 
@@ -249,7 +232,7 @@ async function handleStatus(chatId: string | number, telegramChatId: string) {
       chatId,
       `📊 <b>Status Koneksi</b>\n\n` +
       `❌ Belum terhubung ke akun manapun.\n\n` +
-      `👉 Ketik /department untuk menghubungkan akun.`,
+      `👉 Ketik /start untuk menghubungkan akun.`,
     );
   }
 }
@@ -271,7 +254,7 @@ async function handleUnlink(chatId: string | number, telegramChatId: string) {
       chatId,
       `🔓 <b>Koneksi Diputus</b>\n\n` +
       `Akun <b>${linked.fullName}</b> sudah tidak terhubung dengan Telegram ini.\n\n` +
-      `👉 Ketik /department untuk menghubungkan ulang.`,
+      `👉 Ketik /start untuk menghubungkan ulang.`,
     );
     console.log(`🔓 Telegram unlinked: chat ${telegramChatId} ← ${linked.fullName}`);
   } else {
@@ -285,8 +268,7 @@ async function handleHelp(chatId: string | number) {
     `📖 <b>Bantuan Bot PRM-IMM</b>\n\n` +
     `Bot ini mengirimkan notifikasi otomatis untuk persetujuan ruang meeting.\n\n` +
     `<b>Perintah:</b>\n` +
-    `/start — Mulai & selamat datang\n` +
-    `/department — Pilih departemen & hubungkan akun\n` +
+    `/start — Mulai & hubungkan akun\n` +
     `/status — Cek status koneksi\n` +
     `/unlink — Putuskan koneksi akun\n` +
     `/help — Tampilkan bantuan ini`,
@@ -323,34 +305,9 @@ app.openapi(webhookRoute, async (c) => {
       const messageId = cbq.message?.message_id;
       const data = cbq.data as string;
 
-      if (data.startsWith('dept:')) {
-        // dept:id:name
-        const parts = data.split(':');
-        const deptId = parseInt(parts[1]);
-        const deptName = parts.slice(2).join(':');
-        await handleDepartmentSelection(chatId, messageId, cbq.id, deptId, deptName);
-      } else if (data.startsWith('user:')) {
+      if (data.startsWith('user:')) {
         const userId = parseInt(data.split(':')[1]);
         await handleUserSelection(chatId, messageId, cbq.id, userId, chatId);
-      } else if (data === 'back:dept') {
-        await answerCallback(cbq.id);
-        // Re-show department list by editing the message
-        const deptList = await db.select({ id: departments.id, name: departments.name })
-          .from(departments).where(eq(departments.isActive, 1));
-        
-        const buttons = deptList.map(d => ({
-          text: d.name,
-          callback_data: `dept:${d.id}:${d.name}`,
-        }));
-        const keyboard: { text: string; callback_data: string }[][] = [];
-        for (let i = 0; i < buttons.length; i += 2) {
-          keyboard.push(buttons.slice(i, i + 2));
-        }
-        await editMessage(
-          chatId, messageId,
-          '🏢 <b>Pilih Departemen Anda:</b>\n\nSilakan pilih departemen tempat Anda bekerja.',
-          { inline_keyboard: keyboard },
-        );
       }
 
       return c.json({ ok: true });
@@ -366,8 +323,6 @@ app.openapi(webhookRoute, async (c) => {
 
     if (text === '/start') {
       await handleStart(chatId, firstName);
-    } else if (text === '/department') {
-      await handleDepartment(chatId);
     } else if (text === '/status') {
       await handleStatus(chatId, chatId);
     } else if (text === '/unlink') {
