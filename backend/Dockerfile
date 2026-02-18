@@ -1,4 +1,4 @@
-# Build stage
+# Build stage — v2 simplified telegram flow
 FROM node:18-alpine
 
 # Set working directory
