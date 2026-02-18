@@ -3,9 +3,9 @@
  * Uses Telegram Bot API via HTTPS (port 443) — works on Railway.
  *
  * Flow:
- *  1. New meeting request → notify Head Dept of the requester's department
- *  2. Head Dept approves  → notify GA
- *  3. Head Dept rejects   → (no further notification)
+ *  1. New meeting request → notify General Affairs (GA)
+ *  2. GA approves          → notify Head GA
+ *  3. GA rejects           → (no further notification)
  *
  * Env vars:
  *   TELEGRAM_BOT_TOKEN  — token from @BotFather
@@ -100,7 +100,7 @@ function buildMeetingRequestMessage(
 }
 
 /**
- * Build message notifying GA after Head Dept approval
+ * Build message notifying Head GA after General Affairs approval
  */
 function buildGANotificationMessage(
   data: TelegramMeetingData,
@@ -110,10 +110,10 @@ function buildGANotificationMessage(
   const loginUrl = `${frontendUrl}/login?redirect=/monitoring`;
 
   return (
-    `✅ <b>Head Dept Approved — Menunggu Persetujuan GA</b>\n` +
+    `✅ <b>General Affairs Approved — Menunggu Persetujuan Head GA</b>\n` +
     `━━━━━━━━━━━━━━━━━━━━━━\n` +
     `Halo <b>${recipientName}</b>,\n` +
-    `Permintaan berikut telah disetujui oleh Head Department dan memerlukan persetujuan Anda sebagai <b>General Affairs</b>.\n\n` +
+    `Permintaan berikut telah disetujui oleh General Affairs dan memerlukan persetujuan Anda sebagai <b>Head GA</b>.\n\n` +
     `🆔 <b>ID:</b> ${data.requestId}\n` +
     `👤 <b>Pemohon:</b> ${data.nama}\n` +
     `🏢 <b>Department:</b> ${data.department}\n` +
@@ -136,54 +136,54 @@ export interface TelegramApprover {
 }
 
 /**
- * Notify Head Dept (of the same department as requester) when a new request is created.
- * Also sends to GA so they are aware, but GA acts only after Head Dept approves.
+ * Notify General Affairs when a new request is created.
+ * Head GA acts only after GA approves.
  */
 export async function notifyNewRequest(
   data: TelegramMeetingData,
   approvers: TelegramApprover[],
 ): Promise<void> {
-  // Only notify Head Dept at creation time
-  const headDeptApprovers = approvers.filter(a => a.role === 'head_dept' && a.telegramChatId);
+  // Notify GA at creation time
+  const gaApprovers = approvers.filter(a => a.role === 'ga' && a.telegramChatId);
 
-  for (const approver of headDeptApprovers) {
-    const msg = buildMeetingRequestMessage(data, approver.fullName, 'Head Department');
+  for (const approver of gaApprovers) {
+    const msg = buildMeetingRequestMessage(data, approver.fullName, 'General Affairs');
     await sendMessage(approver.telegramChatId!, msg);
   }
 
-  if (headDeptApprovers.length === 0) {
+  if (gaApprovers.length === 0) {
     // Fallback to default chat id
     const fallback = process.env.TELEGRAM_CHAT_ID;
     if (fallback) {
-      const msg = buildMeetingRequestMessage(data, 'Admin', 'Head Department');
+      const msg = buildMeetingRequestMessage(data, 'Admin', 'General Affairs');
       await sendMessage(fallback, msg);
     } else {
-      console.log('⚠️ No Head Dept Telegram recipients found');
+      console.log('⚠️ No GA Telegram recipients found');
     }
   }
 }
 
 /**
- * Notify GA users after Head Dept approves a request.
+ * Notify Head GA users after General Affairs approves a request.
  */
 export async function notifyGAAfterHeadApproval(
   data: TelegramMeetingData,
-  gaApprovers: TelegramApprover[],
+  headGAApprovers: TelegramApprover[],
 ): Promise<void> {
-  const gaWithChat = gaApprovers.filter(a => a.telegramChatId);
+  const withChat = headGAApprovers.filter(a => a.telegramChatId);
 
-  for (const approver of gaWithChat) {
+  for (const approver of withChat) {
     const msg = buildGANotificationMessage(data, approver.fullName);
     await sendMessage(approver.telegramChatId!, msg);
   }
 
-  if (gaWithChat.length === 0) {
+  if (withChat.length === 0) {
     const fallback = process.env.TELEGRAM_CHAT_ID;
     if (fallback) {
-      const msg = buildGANotificationMessage(data, 'General Affairs');
+      const msg = buildGANotificationMessage(data, 'Head GA');
       await sendMessage(fallback, msg);
     } else {
-      console.log('⚠️ No GA Telegram recipients found');
+      console.log('⚠️ No Head GA Telegram recipients found');
     }
   }
 }

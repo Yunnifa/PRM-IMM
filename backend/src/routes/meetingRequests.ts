@@ -249,22 +249,7 @@ app.openapi(createMeetingRequestRoute, async (c) => {
   // Send notifications (fire-and-forget for faster response)
   (async () => {
     try {
-      // Find Head Department user for this specific department only
-      const headDeptUsers = await db.select({
-        email: users.email,
-        fullName: users.fullName,
-        telegramChatId: users.telegramChatId,
-      })
-      .from(users)
-      .where(
-        and(
-          eq(users.role, 'head_dept'),
-          eq(users.department, data.department),
-          eq(users.isActive, 1)
-        )
-      );
-
-      // Find General Affair users (GA can approve all departments)
+      // Find General Affairs users (GA approves first)
       const gaUsers = await db.select({
         email: users.email,
         fullName: users.fullName,
@@ -293,15 +278,15 @@ app.openapi(createMeetingRequestRoute, async (c) => {
         fasilitas: newRequest.fasilitas,
       };
 
-      // Send Telegram to Head Dept only (GA notified after Head Dept approves)
-      const telegramApprovers: TelegramApprover[] = headDeptUsers.map(h => ({
-        fullName: h.fullName,
-        telegramChatId: h.telegramChatId,
-        role: 'head_dept' as const,
+      // Send Telegram to GA first (Head GA notified after GA approves)
+      const telegramApprovers: TelegramApprover[] = gaUsers.map(g => ({
+        fullName: g.fullName,
+        telegramChatId: g.telegramChatId,
+        role: 'ga' as const,
       }));
 
       await notifyNewRequest(meetingData, telegramApprovers);
-      console.log(`📱 Telegram notifications sent to ${telegramApprovers.length} Head Dept approvers`);
+      console.log(`📱 Telegram notifications sent to ${telegramApprovers.length} GA approvers`);
     } catch (notifError) {
       console.error('❌ Failed to send notifications:', notifError);
     }
@@ -378,19 +363,24 @@ app.openapi(updateApprovalRoute, async (c) => {
   const { type, notes, userRole, userDepartment } = c.req.valid('json');
 
   // === VALIDATION: Role-based restrictions ===
-  // Head Dept can only approve/reject Head Dept column
-  if (userRole === 'head_dept' && (type === 'approveGA' || type === 'rejectGA')) {
-    throw new HTTPException(403, { message: 'Head Department tidak dapat melakukan approval General Affair' });
+  // GA role can only approve/reject General Affairs column (column 1), not Head GA column
+  if (userRole === 'ga' && (type === 'approveGA' || type === 'rejectGA')) {
+    throw new HTTPException(403, { message: 'General Affairs tidak dapat melakukan approval Head GA' });
   }
 
-  // GA approval requires Head Dept to be approved first
+  // Head Dept role can only approve/reject Head GA column (column 2), not General Affairs column
+  if (userRole === 'head_dept' && (type === 'approveHeadDept' || type === 'rejectHeadDept')) {
+    throw new HTTPException(403, { message: 'Head GA tidak dapat melakukan approval General Affairs' });
+  }
+
+  // Head GA approval (column 2) requires General Affairs (column 1) to be approved first
   if (type === 'approveGA' || type === 'rejectGA') {
     const [currentRequest] = await db.select({ headDept: meetingRequests.headDept })
       .from(meetingRequests)
       .where(eq(meetingRequests.id, id));
     
     if (currentRequest && currentRequest.headDept !== 'approved') {
-      throw new HTTPException(400, { message: 'Head Department harus approve terlebih dahulu sebelum General Affair dapat melakukan approval' });
+      throw new HTTPException(400, { message: 'General Affairs harus approve terlebih dahulu sebelum Head GA dapat melakukan approval' });
     }
   }
 
@@ -402,26 +392,26 @@ app.openapi(updateApprovalRoute, async (c) => {
   switch (type) {
     case 'approveHeadDept':
       updateData = { headDept: 'approved' };
-      historyAction = 'Approved by Head Department';
-      historyBy = 'Head Department';
+      historyAction = 'Approved by General Affairs';
+      historyBy = 'General Affairs';
       historyStatus = 'approved';
       break;
     case 'rejectHeadDept':
       updateData = { headDept: 'rejected' };
-      historyAction = 'Rejected by Head Department';
-      historyBy = 'Head Department';
+      historyAction = 'Rejected by General Affairs';
+      historyBy = 'General Affairs';
       historyStatus = 'rejected';
       break;
     case 'approveGA':
       updateData = { ga: 'approved' };
-      historyAction = 'Approved by General Affair';
-      historyBy = 'General Affair';
+      historyAction = 'Approved by Head GA';
+      historyBy = 'Head GA';
       historyStatus = 'approved';
       break;
     case 'rejectGA':
       updateData = { ga: 'rejected' };
-      historyAction = 'Rejected by General Affair';
-      historyBy = 'General Affair';
+      historyAction = 'Rejected by Head GA';
+      historyBy = 'Head GA';
       historyStatus = 'rejected';
       break;
   }
@@ -439,26 +429,26 @@ app.openapi(updateApprovalRoute, async (c) => {
     notes: notes || null,
   });
 
-  // Send Telegram to GA when Head Dept approves (fire-and-forget)
+  // Send Telegram to Head GA when General Affairs approves (fire-and-forget)
   if (type === 'approveHeadDept') {
     (async () => {
       try {
-        const gaUsers = await db.select({
+        const headGAUsers = await db.select({
           fullName: users.fullName,
           telegramChatId: users.telegramChatId,
         })
         .from(users)
         .where(
           and(
-            eq(users.role, 'ga'),
+            eq(users.role, 'head_dept'),
             eq(users.isActive, 1)
           )
         );
 
-        const gaApprovers: TelegramApprover[] = gaUsers.map(g => ({
-          fullName: g.fullName,
-          telegramChatId: g.telegramChatId,
-          role: 'ga' as const,
+        const headGAApprovers: TelegramApprover[] = headGAUsers.map(h => ({
+          fullName: h.fullName,
+          telegramChatId: h.telegramChatId,
+          role: 'head_dept' as const,
         }));
 
         await notifyGAAfterHeadApproval({
@@ -474,10 +464,10 @@ app.openapi(updateApprovalRoute, async (c) => {
           agenda: updated.agenda,
           namaRuangan: updated.namaRuangan,
           fasilitas: updated.fasilitas,
-        }, gaApprovers);
-        console.log(`📱 Telegram sent to ${gaApprovers.length} GA approvers`);
+        }, headGAApprovers);
+        console.log(`📱 Telegram sent to ${headGAApprovers.length} Head GA approvers`);
       } catch (err) {
-        console.error('❌ Failed to send Telegram to GA:', err);
+        console.error('❌ Failed to send Telegram to Head GA:', err);
       }
     })();
   }

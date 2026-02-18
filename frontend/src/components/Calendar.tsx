@@ -745,13 +745,13 @@ const Calendar = () => {
                         <div>
                           <p className="text-xs text-gray-600">Status Approval</p>
                           {meeting.headDept === 'pending' ? (
-                            <p className="font-semibold text-yellow-600">Menunggu Head Dept</p>
-                          ) : meeting.headDept === 'rejected' ? (
-                            <p className="font-semibold text-red-600">Ditolak Head Dept</p>
-                          ) : meeting.ga === 'pending' ? (
                             <p className="font-semibold text-yellow-600">Menunggu General Affairs</p>
-                          ) : meeting.ga === 'rejected' ? (
+                          ) : meeting.headDept === 'rejected' ? (
                             <p className="font-semibold text-red-600">Ditolak General Affairs</p>
+                          ) : meeting.ga === 'pending' ? (
+                            <p className="font-semibold text-yellow-600">Menunggu Head GA</p>
+                          ) : meeting.ga === 'rejected' ? (
+                            <p className="font-semibold text-red-600">Ditolak Head GA</p>
                           ) : (
                             <p className="font-semibold text-green-600">Approved</p>
                           )}

@@ -11,6 +11,7 @@ Dokumentasi lengkap mengenai teknologi dan environment yang digunakan pada proje
 | **Frontend** | React + TypeScript |
 | **Backend** | Hono (Node.js Framework) |
 | **Database** | PostgreSQL |
+| **Notifikasi** | Telegram Bot API |
 | **Deployment** | Railway (Nixpacks) |
 
 ---
@@ -32,6 +33,14 @@ Dokumentasi lengkap mengenai teknologi dan environment yang digunakan pada proje
 
 **Port Development:** `3001`
 
+### Fitur Frontend
+
+- **Responsive Design** — Sidebar toggle untuk mobile, layout adaptif
+- **Role-based UI** — Approval buttons tampil sesuai role user (Admin, Head Dept, GA)
+- **Export** — Excel, CSV, PDF di semua halaman data
+- **Calendar** — Kalender interaktif untuk booking ruangan (publik)
+- **Filter & Search** — Filter multi-kriteria di halaman monitoring
+
 ---
 
 ## ⚙️ Backend Stack
@@ -52,6 +61,47 @@ Dokumentasi lengkap mengenai teknologi dan environment yang digunakan pada proje
 | **DB Migration** | Drizzle Kit | ^0.24.0 |
 
 **Port Development:** `3000`
+
+---
+
+## 📨 Notifikasi — Telegram Bot
+
+| Item | Detail |
+|------|--------|
+| **Channel** | Telegram Bot API (HTTPS port 443) |
+| **Metode** | Webhook (`/api/telegram/webhook`) |
+| **Bot Commands** | `/start`, `/department`, `/status`, `/unlink`, `/help` |
+| **Self-Registration** | User mendaftarkan diri via bot dengan inline keyboard |
+| **Notifikasi** | Request baru → Head Dept, Setelah HD approve → GA |
+
+### Alur Notifikasi
+
+1. **Request baru dibuat** → Bot kirim notif ke semua Head Dept di department terkait
+2. **Head Dept approve** → Bot kirim notif ke semua user GA untuk approval GA
+3. User meng-link akun mereka ke Telegram via bot command `/department` → pilih department → pilih nama
+
+### Environment Variables Telegram
+
+```env
+TELEGRAM_BOT_TOKEN=your-bot-token
+TELEGRAM_WEBHOOK_SECRET=your-webhook-secret
+```
+
+---
+
+## 🔐 Approval System
+
+| Role | Akses Approval |
+|------|---------------|
+| **Admin** | Bisa approve di kolom Head Dept & General Affair |
+| **Head Dept** | Hanya bisa approve di kolom Head Dept (tidak bisa approve GA) |
+| **GA (General Affair)** | Hanya bisa approve di kolom GA, dan **hanya setelah** Head Dept sudah approve |
+
+### Validasi Backend
+
+- Head Dept mencoba approve kolom GA → `403 Forbidden`
+- GA mencoba approve sebelum Head Dept approve → `400 Bad Request`
+- Validasi dilakukan di route `meetingRequests.ts` menggunakan `HTTPException`
 
 ---
 
@@ -77,6 +127,8 @@ PORT=3000
 DATABASE_URL=postgresql://postgres:PASSWORD@localhost:5432/prm_imm
 JWT_SECRET=your-super-secret-jwt-key
 FRONTEND_URL=http://localhost:5173
+TELEGRAM_BOT_TOKEN=your-telegram-bot-token
+TELEGRAM_WEBHOOK_SECRET=your-webhook-secret
 ```
 
 ---
@@ -87,8 +139,10 @@ FRONTEND_URL=http://localhost:5173
 |------|--------|
 | **Platform** | Railway |
 | **Builder** | Nixpacks |
+| **Domain** | `prm-imm-production.up.railway.app` |
 | **Health Check** | Path `/` dengan timeout 100s |
 | **Restart Policy** | On Failure (max 3 retries) |
+| **Webhook** | Telegram webhook auto-setup via `/api/telegram/setup-webhook` |
 
 ---
 
@@ -103,16 +157,24 @@ PRM-IMM/
 │   │   │   ├── index.ts        # Database connection
 │   │   │   ├── schema.ts       # Drizzle schema
 │   │   │   ├── seed.ts         # Database seeder
+│   │   │   ├── syncSchema.ts   # Sync schema to DB
 │   │   │   └── push.ts         # Push schema to DB
 │   │   ├── middleware/
 │   │   │   └── apiLogger.ts    # API logging middleware
+│   │   ├── services/
+│   │   │   ├── telegramService.ts  # Telegram notification service
+│   │   │   └── emailService.ts     # (deprecated, tidak digunakan)
 │   │   └── routes/
 │   │       ├── auth.ts         # Authentication routes
 │   │       ├── departments.ts  # Department management
+│   │       ├── emailLogs.ts    # Email log routes
 │   │       ├── facilities.ts   # Facility management
-│   │       ├── meetingRequests.ts # Meeting request CRUD
+│   │       ├── meetingRequests.ts # Meeting request CRUD + approval
 │   │       ├── rooms.ts        # Room management
+│   │       ├── telegram.ts     # Telegram webhook & bot commands
 │   │       └── users.ts        # User management
+│   ├── migrations/
+│   │   └── 001_rename_roles.sql
 │   ├── drizzle.config.ts       # Drizzle configuration
 │   ├── package.json
 │   ├── tsconfig.json
@@ -121,23 +183,23 @@ PRM-IMM/
 │
 ├── frontend/                   # React SPA
 │   ├── src/
-│   │   ├── App.tsx             # Main App component
+│   │   ├── App.tsx             # Main App + routing
 │   │   ├── main.tsx            # Entry point
-│   │   ├── index.css           # Global styles
+│   │   ├── index.css           # Global styles (Tailwind)
 │   │   ├── components/
-│   │   │   ├── AdminLayout.tsx # Admin dashboard layout
-│   │   │   ├── Calendar.tsx    # Calendar component
-│   │   │   ├── DataDepartment.tsx
-│   │   │   ├── DataFasilitas.tsx
-│   │   │   ├── DataMonitoring.tsx
-│   │   │   ├── DataRuangan.tsx
-│   │   │   ├── DataUser.tsx
-│   │   │   ├── Header.tsx
-│   │   │   ├── Login.tsx
-│   │   │   └── Sidebar.tsx
+│   │   │   ├── AdminLayout.tsx # Admin layout (responsive sidebar toggle)
+│   │   │   ├── Calendar.tsx    # Public calendar + booking form
+│   │   │   ├── DataDepartment.tsx  # Department CRUD
+│   │   │   ├── DataFasilitas.tsx   # Facility CRUD + import
+│   │   │   ├── DataMonitoring.tsx  # Monitoring + approval (role-based)
+│   │   │   ├── DataRuangan.tsx     # Room CRUD
+│   │   │   ├── DataUser.tsx        # User CRUD + import
+│   │   │   ├── Header.tsx          # Header (responsive)
+│   │   │   ├── Login.tsx           # Login page
+│   │   │   └── Sidebar.tsx         # Sidebar (responsive, collapsible)
 │   │   └── services/
-│   │       ├── api.ts          # API configuration
-│   │       └── apiService.ts   # API service layer
+│   │       ├── api.ts          # Axios instance configuration
+│   │       └── apiService.ts   # API service layer (typed)
 │   ├── public/                 # Static assets
 │   ├── assets/                 # Asset files
 │   ├── index.html              # HTML template
@@ -166,6 +228,7 @@ PRM-IMM/
 | `npm run start` | Jalankan backend untuk production |
 | `npm run build` | Install dependencies |
 | `npm run db:push` | Push schema Drizzle ke database |
+| `npm run db:seed` | Seed data awal ke database |
 | `npm run db:studio` | Buka Drizzle Studio (GUI database) |
 
 ### Frontend Commands
@@ -185,6 +248,7 @@ PRM-IMM/
 - **Node.js** v18+ (https://nodejs.org/)
 - **PostgreSQL** v15+ (https://www.postgresql.org/download/)
 - **npm** atau **yarn**
+- **Telegram Bot** (buat via @BotFather)
 
 ---
 
@@ -195,7 +259,10 @@ PRM-IMM/
 - **Hono** dipilih karena performa tinggi dan ringan (mirip Express tapi lebih cepat)
 - **Drizzle ORM** memberikan type-safe database queries
 - **Vite** sebagai build tool modern yang sangat cepat
-- **Tailwind CSS** untuk styling utility-first
+- **Tailwind CSS** untuk styling utility-first yang responsive
+- **Telegram Bot API** untuk notifikasi (menggantikan email karena Railway memblokir port 587/SMTP)
+- **Role-based access control** — approval kolom Head Dept dan General Affair dibatasi per role
+- **Responsive design** — semua halaman mendukung mobile dan desktop
 
 ---
 

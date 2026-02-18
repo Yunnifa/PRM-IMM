@@ -47,9 +47,10 @@ const DataMonitoring = () => {
   const isAdmin = userRole === 'admin';
   const isHeadDept = userRole === 'head_dept';
   const isGA = userRole === 'ga';
-  // GA column can be approved by: admin, ga role, or head_dept/admin with department containing 'GA'
-  const canApproveGA = isAdmin || isGA || (isHeadDept && userDepartment?.toLowerCase()?.includes('ga'));
-  const canApproveHeadDept = isAdmin || isHeadDept;
+  // Head GA column (column 2) can be approved by: admin, head_dept with GA department
+  const canApproveGA = isAdmin || (isHeadDept && userDepartment?.toLowerCase()?.includes('ga'));
+  // General Affairs column (column 1) can be approved by: admin, ga role
+  const canApproveHeadDept = isAdmin || isGA;
 
   // Fetch meetings from backend
   useEffect(() => {
@@ -291,8 +292,8 @@ const DataMonitoring = () => {
       'Agenda': m.agenda,
       'Ruangan': m.namaRuangan,
       'Fasilitas': m.fasilitas,
-      'Head Dept': m.headDept,
-      'General Affair': m.ga
+      'General Affairs': m.headDept,
+      'Head GA': m.ga
     }));
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
@@ -303,7 +304,7 @@ const DataMonitoring = () => {
   const exportToCSV = () => {
     setShowExportDropdown(false);
     // CSV export implementation
-    const headers = ['ID', 'Nama', 'Department', 'Tanggal', 'Hari', 'Jam Mulai', 'Jam Berakhir', 'Jumlah Peserta', 'Agenda', 'Ruangan', 'Fasilitas', 'Head Dept', 'General Affair'];
+    const headers = ['ID', 'Nama', 'Department', 'Tanggal', 'Hari', 'Jam Mulai', 'Jam Berakhir', 'Jumlah Peserta', 'Agenda', 'Ruangan', 'Fasilitas', 'General Affairs', 'Head GA'];
     const csvData = filteredMeetings.map(m => [
       m.id, m.nama, m.department, m.tanggal, m.hari, m.jamMulai, m.jamBerakhir, 
       m.jumlahPeserta, m.agenda, m.namaRuangan, m.fasilitas, m.headDept, m.ga
@@ -332,7 +333,7 @@ const DataMonitoring = () => {
     
     autoTable(doc, {
       startY: 30,
-      head: [['ID', 'Nama', 'Department', 'Tanggal', 'Jam', 'Peserta', 'Agenda', 'Ruangan', 'Head Dept', 'General Affair']],
+      head: [['ID', 'Nama', 'Department', 'Tanggal', 'Jam', 'Peserta', 'Agenda', 'Ruangan', 'General Affairs', 'Head GA']],
       body: filteredMeetings.map(m => [
         m.id, m.nama, m.department, m.tanggal, 
         `${m.jamMulai}-${m.jamBerakhir}`, m.jumlahPeserta, 
@@ -652,8 +653,8 @@ const DataMonitoring = () => {
                 <th className="px-2 lg:px-4 py-2 lg:py-3 text-left text-xs lg:text-sm font-semibold">Agenda</th>
                 <th className="px-2 lg:px-4 py-2 lg:py-3 text-left text-xs lg:text-sm font-semibold">Ruangan</th>
                 <th className="px-2 lg:px-4 py-2 lg:py-3 text-left text-xs lg:text-sm font-semibold">Fasilitas</th>
-                <th className="px-2 lg:px-4 py-2 lg:py-3 text-left text-xs lg:text-sm font-semibold">Head Dept</th>
-                <th className="px-2 lg:px-4 py-2 lg:py-3 text-left text-xs lg:text-sm font-semibold">General Affair</th>
+                <th className="px-2 lg:px-4 py-2 lg:py-3 text-left text-xs lg:text-sm font-semibold">General Affairs</th>
+                <th className="px-2 lg:px-4 py-2 lg:py-3 text-left text-xs lg:text-sm font-semibold">Head GA</th>
                 <th className="px-2 lg:px-4 py-2 lg:py-3 text-left text-xs lg:text-sm font-semibold">Edit</th>
                 <th className="px-2 lg:px-4 py-2 lg:py-3 text-left text-xs lg:text-sm font-semibold">History</th>
               </tr>
@@ -728,10 +729,10 @@ const DataMonitoring = () => {
                       )}
                     </td>
                     <td className="px-2 lg:px-4 py-2 lg:py-3 text-xs lg:text-sm">
-                      {/* General Affair — only after Head Dept approved */}
+                      {/* Head GA — only after General Affairs approved */}
                       {meeting.headDept !== 'approved' ? (
                         <span className="px-2 lg:px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-500">
-                          {meeting.headDept === 'rejected' ? 'Ditolak HD' : 'Menunggu HD'}
+                          {meeting.headDept === 'rejected' ? 'Ditolak GA' : 'Menunggu GA'}
                         </span>
                       ) : meeting.ga === 'pending' && canApproveGA ? (
                         <div className="flex gap-1">
@@ -974,7 +975,7 @@ const DataMonitoring = () => {
                   {confirmAction.type.includes('approve') ? 'Approve Permohonan' : 'Reject Permohonan'}
                 </h2>
                 <p className="text-sm text-gray-600">
-                  {confirmAction.type.includes('HeadDept') ? 'Head Department' : 'General Affairs'}
+                  {confirmAction.type.includes('HeadDept') ? 'General Affairs' : 'Head GA'}
                 </p>
               </div>
             </div>
