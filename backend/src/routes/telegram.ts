@@ -64,7 +64,7 @@ async function handleStart(chatId: string | number, firstName: string) {
 
   if (alreadyLinked) {
     const roleLabel =
-      alreadyLinked.role === 'head_dept' ? 'Head GA' :
+      alreadyLinked.role === 'head_dept' ? 'General Affairs' :
       alreadyLinked.role === 'ga' ? 'General Affairs' :
       alreadyLinked.role === 'admin' ? 'Administrator' : 'User';
 
@@ -82,8 +82,8 @@ async function handleStart(chatId: string | number, firstName: string) {
     return;
   }
 
-  // Fetch GA and Head GA approvers (the only roles that need Telegram notifications)
-  const approverList = await db.select({
+  // Fetch users from General Affairs department
+  const gaUsers = await db.select({
     id: users.id,
     fullName: users.fullName,
     role: users.role,
@@ -97,22 +97,26 @@ async function handleStart(chatId: string | number, firstName: string) {
     )
   );
 
-  // Filter to GA and head_dept roles only
-  const approvers = approverList.filter(u => u.role === 'ga' || u.role === 'head_dept' || u.role === 'admin');
+  // Filter to users whose department contains 'General Affairs' or 'GA', plus admin
+  const approvers = gaUsers.filter(u => 
+    u.department?.toLowerCase()?.includes('general affair') ||
+    u.department?.toLowerCase()?.includes('general affairs') ||
+    u.role === 'admin'
+  );
 
   if (approvers.length === 0) {
     await sendText(
       chatId,
       `👋 <b>Selamat datang, ${firstName}!</b>\n\n` +
       `Saya adalah <b>Bot Notifikasi PRM-IMM</b> 🏢\n\n` +
-      `⚠️ Belum ada user approver (General Affairs / Head GA) yang terdaftar di sistem.`,
+      `⚠️ Belum ada user di departemen General Affairs yang terdaftar di sistem.`,
     );
     return;
   }
 
-  // Build inline keyboard with approver names
+  // Build inline keyboard with user names
   const buttons = approvers.map(u => {
-    const roleLabel = u.role === 'ga' ? '🏗 GA' : u.role === 'head_dept' ? '👔 Head GA' : '⚙️ Admin';
+    const roleLabel = u.role === 'ga' ? '🏗 GA' : u.role === 'head_dept' ? '👔 GA' : u.role === 'admin' ? '⚙️ Admin' : '👤';
     const linked = u.telegramChatId ? ' ✅' : '';
     return {
       text: `${roleLabel} ${u.fullName}${linked}`,
@@ -130,8 +134,8 @@ async function handleStart(chatId: string | number, firstName: string) {
     `👋 <b>Selamat datang, ${firstName}!</b>\n\n` +
     `Saya adalah <b>Bot Notifikasi PRM-IMM</b> 🏢\n` +
     `Sistem Peminjaman Ruangan Meeting PT IMM.\n\n` +
-    `Untuk menerima notifikasi persetujuan meeting, ` +
-    `silakan pilih nama Anda di bawah:\n\n` +
+    `🏢 <b>Departemen General Affairs</b>\n` +
+    `Silakan pilih nama Anda di bawah untuk menerima notifikasi persetujuan meeting:\n\n` +
     `<i>(✅ = sudah terhubung)</i>`,
     { inline_keyboard: keyboard },
   );
@@ -184,7 +188,7 @@ async function handleUserSelection(
   }
 
   const roleLabel =
-    updatedUser.role === 'head_dept' ? 'Head GA' :
+    updatedUser.role === 'head_dept' ? 'General Affairs' :
     updatedUser.role === 'ga' ? 'General Affairs' :
     updatedUser.role === 'admin' ? 'Administrator' : 'User';
 
@@ -214,7 +218,7 @@ async function handleStatus(chatId: string | number, telegramChatId: string) {
 
   if (linked) {
     const roleLabel =
-      linked.role === 'head_dept' ? 'Head GA' :
+      linked.role === 'head_dept' ? 'General Affairs' :
       linked.role === 'ga' ? 'General Affairs' :
       linked.role === 'admin' ? 'Administrator' : 'User';
 
